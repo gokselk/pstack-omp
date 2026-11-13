@@ -57,6 +57,11 @@ const CLAUDE_ADAPTER_SHA256 = "c79e2283d3a83c6be3dd1cac33f9c074067c95e610ae6e0a1
 // The adapter routes to setup-pstack, poteto-mode, deslop, control-cli, control-ui, verify-this, and skill-creator, and
 // the README names poteto-help.
 const REQUIRED_SKILLS = ["setup-pstack", "poteto-mode", "poteto-help", "deslop", "control-cli", "control-ui", "verify-this", "skill-creator"];
+// Upstream skills the tree leaves out, each with the reason. They are not copied, classified, or routed to, and a
+// relative link to one points at cursor/plugins `main` like any other upstream file the tree lacks.
+const DROPPED_SKILLS = {
+  "make-bot-ui": "it builds a page whose buttons wake a Cursor Automation routine over api2.cursor.sh, and omp has no Cursor Automations",
+};
 const LINK = /\]\(([^)\s]+)\)/g;
 
 // Every Cursor name a skill uses needs a row in the omp adapter. The keys are the upstream Claude Code generator's,
@@ -105,12 +110,20 @@ function file(path) {
 }
 
 const text = (bytes) => Buffer.from(bytes).toString("utf8");
+const upstreamSkillNames = new Set();
 const skills = [...SKILL_ROOTS, ADAPTER_ROOT].flatMap((root) =>
   readdirSync(join(ROOT_DIRS[root], "skills"))
     .filter((name) => existsSync(join(ROOT_DIRS[root], "skills", name, "SKILL.md")))
+    .filter((name) => {
+      if (root === ADAPTER_ROOT) return true;
+      upstreamSkillNames.add(name);
+      return !Object.hasOwn(DROPPED_SKILLS, name);
+    })
     .map((name) => ({ name, root })),
 );
 const skillNames = skills.map(({ name }) => name);
+// A path under skills/<name>/ of a dropped upstream skill, relative to its root.
+const isDropped = (root, path) => root !== ADAPTER_ROOT && /^skills\/[^/]+\//.test(path) && Object.hasOwn(DROPPED_SKILLS, path.split("/")[1]);
 const skillDir = ({ name, root }) => join(ROOT_DIRS[root], "skills", name);
 const agents = readdirSync(AGENTS).filter((name) => name.endsWith(".md"));
 
@@ -220,7 +233,11 @@ for (const [index, skill] of skills.entries()) {
   if (!SKILL_NAME.test(skill.name) || skill.name.length > 64) problems.push(`${folder} is not lowercase words joined by hyphens, at most 64 characters`);
 }
 for (const skill of REQUIRED_SKILLS) {
-  if (!skillNames.includes(skill)) problems.push(`skills/${skill} is gone, but the omp tree points users or agents at it`);
+  if (Object.hasOwn(DROPPED_SKILLS, skill)) problems.push(`${skill} is in DROPPED_SKILLS, but the omp tree points users or agents at it. Delete it from DROPPED_SKILLS or REQUIRED_SKILLS`);
+  else if (!skillNames.includes(skill)) problems.push(`skills/${skill} is gone, but the omp tree points users or agents at it`);
+}
+for (const name of Object.keys(DROPPED_SKILLS)) {
+  if (!upstreamSkillNames.has(name)) problems.push(`${name} is gone upstream. Delete it from DROPPED_SKILLS`);
 }
 const claudeAdapter = createHash("sha256").update(readFileSync(join(PSTACK, CLAUDE_ADAPTER))).digest("hex");
 if (claudeAdapter !== CLAUDE_ADAPTER_SHA256) {
@@ -265,7 +282,7 @@ function has(files, from, path) {
 }
 
 // Agent Plugins 1.0.0 (`$schema`) makes omp validate SKILL.md frontmatter against the closed Agent Skills
-// field set, which rejects `disable-model-invocation` and `paths` and drops 57 of 62 skills. Without `$schema`,
+// field set, which rejects `disable-model-invocation` and `paths` and drops 57 of 63 skills. Without `$schema`,
 // omp loads the tree through its Claude-compatible provider, which keeps both fields and hides the user-invoked
 // skills from the model's catalog. `.omp-plugin/plugin.json` also marks the agents' `model:` as omp selectors.
 const { $schema: _schema, ...upstreamFields } = upstreamManifest;
@@ -274,7 +291,11 @@ const manifest = { ...upstreamFields, author: { name: MARKETPLACE_OWNER }, homep
 
 function render() {
   const copies = [
-    ...[...SKILL_ROOTS, ADAPTER_ROOT].flatMap((root) => walk(join(ROOT_DIRS[root], "skills")).map((path) => [root, path])),
+    ...[...SKILL_ROOTS, ADAPTER_ROOT].flatMap((root) =>
+      walk(join(ROOT_DIRS[root], "skills"))
+        .filter((path) => !isDropped(root, relative(ROOT_DIRS[root], path)))
+        .map((path) => [root, path]),
+    ),
     ...[...walk(AGENTS), ...walk(join(PSTACK, GUIDE)), join(PSTACK, "README.md")].map((path) => ["pstack", path]),
   ];
   const files = new Map(

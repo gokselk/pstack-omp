@@ -8,6 +8,8 @@ The tree also ships `deslop`, `control-cli`, `control-ui`, and `verify-this` fro
 
 The tree also ships `skill-creator`, from anthropics/skills at commit `2c5958ecac7cee2b583967a2c4981d0f4a75c579`. pstack's skills hand skill authoring to Cursor's built-in `create-skill`, which omp lacks, and an adapter row sends them to `skill-creator` instead. It is a copy adapted by hand in `adapter/skills/skill-creator/`, and the daily sync does not touch it. Its test runs use omp's `task` tool, and its trigger check and description optimization run on `omp -p`. It is Apache-2.0, so `LICENSE.txt` stays beside its `SKILL.md`, and each file changed from upstream says so in a notice near its top. To update it, diff upstream's `skills/skill-creator/` from that commit to the new one, port the changes by hand, keep the notices, and record the new commit here. The generator ships every folder in `adapter/skills/` byte for byte, with no adapter rows, path rewrites, or link fallback.
 
+The tree leaves out one upstream skill, `make-bot-ui`. It builds a page whose buttons wake a Cursor Automation routine over `api2.cursor.sh`, and omp has no Cursor Automations. `DROPPED_SKILLS` in `scripts/generate-omp-tree.mjs` maps each skill left out to the reason. A relative link to it points at that skill on cursor/plugins `main`, like a link to any other upstream file the tree lacks.
+
 The other skills and agents are upstream's, cursor-team-kit's included, apart from three generated changes:
 
 - Each skill or agent that uses Cursor names gets, under its H1, the adapter rows for the names it uses. The rows sit in the skill because models rarely open a separate adapter file.
@@ -29,7 +31,7 @@ Measured with `omp -p` on Sonnet 5, as passes out of runs:
 
 On Opus 5.5 the same tree passed 2 of 2 delegation runs and 2 of 2 full `reflect` runs. Rewriting tool and field names in the text (`` `Task` `` to `` `task` ``, `subagent_type` to `agent`) was also tried and changed nothing: 0 of 3 delegation runs set `agent`, the same as without it.
 
-The tree has no Agent Plugins `$schema` in its manifest. With it, omp validates every `SKILL.md` against the closed Agent Skills field set (`name`, `description`, `license`, `allowed-tools`, `metadata`, `compatibility`), so upstream's `disable-model-invocation: true` rejects 57 of the 62 skills. None of those six fields hides a skill. Without `$schema`, omp loads the tree through its Claude-compatible provider: all 62 skills load, and the 57 user-invoked ones stay out of the model's catalog while `/skill:<name>` and `skill://<name>` still reach them. The manifest sits at `.omp-plugin/plugin.json`, so omp also reads any agent `model:` as an omp selector.
+The tree has no Agent Plugins `$schema` in its manifest. With it, omp validates every `SKILL.md` against the closed Agent Skills field set (`name`, `description`, `license`, `allowed-tools`, `metadata`, `compatibility`), so upstream's `disable-model-invocation: true` rejects 57 of the 63 skills. None of those six fields hides a skill. Without `$schema`, omp loads the tree through its Claude-compatible provider: all 63 skills load, and the 57 user-invoked ones stay out of the model's catalog while `/skill:<name>` and `skill://<name>` still reach them. The manifest sits at `.omp-plugin/plugin.json`, so omp also reads any agent `model:` as an omp selector.
 
 Per-role models need `task.perCallModel: on` and each model named by a `modelRoles` entry in user settings. `/skill:setup-pstack` offers that block and writes it after the user confirms. Without it, subagents run on their configured model.
 
@@ -81,6 +83,7 @@ The sync or the generator fails, and the scheduled run fails without pushing, wh
 - upstream changes `docs/harness/claude-code.md`. Upstream adds a row there for each Cursor name its skills start using, and the matching `TERMS` entry lives in a script the sync does not fetch. Port the change to `adapter/omp.md` and `TERMS`, then update `CLAUDE_ADAPTER_SHA256` in the generator.
 - a skill uses a Cursor name in `TERMS` that `adapter/omp.md` has no row or section for.
 - `setup-pstack`, `poteto-mode`, `poteto-help`, `deslop`, `control-cli`, `control-ui`, `verify-this`, or `skill-creator` is gone. The adapter and the README point at them.
+- a skill in `DROPPED_SKILLS` is gone upstream, or is also one of the skills the adapter and the README point at. Delete it from `DROPPED_SKILLS`, or from `REQUIRED_SKILLS` in the generator.
 - two skills from `upstream/pstack/skills/`, `upstream/cursor-team-kit/skills/`, and `adapter/skills/` share a name. The tree has one `skills/<name>/` folder for each name.
 - a skill in `upstream/` or `adapter/skills/` is named `pstack-omp-adapter`.
 - a row of the adapter's "Rewritten paths" table matches nothing upstream. Delete the row.
