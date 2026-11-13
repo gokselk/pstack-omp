@@ -1,8 +1,9 @@
 ---
 name: skill-creator
 description: Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.
+disable-model-invocation: true
 ---
-<!-- Modified for omp by pstack-omp (2026): test runs use omp's task tool, description optimization runs on omp -p, and the Claude.ai and Cowork sections became "Running in omp". -->
+<!-- Modified for omp by pstack-omp (2026): test runs use omp's task tool, description optimization runs on omp -p, the Claude.ai and Cowork sections became "Running in omp", and disable-model-invocation hides it from the model's skill catalog. -->
 
 # Skill Creator
 

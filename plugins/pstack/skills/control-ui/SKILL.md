@@ -1,6 +1,7 @@
 ---
 name: control-ui
 description: Build or adapt a local browser/CDP harness to drive and inspect a web, IDE, or Electron UI. Use for local UI verification, screenshots, accessibility snapshots, perf profiles, visual diffs, or reproducing UI bugs.
+disable-model-invocation: true
 ---
 
 # Control UI

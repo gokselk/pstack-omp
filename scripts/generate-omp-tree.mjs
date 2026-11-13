@@ -163,6 +163,14 @@ const REWRITE_SECTION = "Rewritten paths";
 const rewrites = (sections.find((section) => section.heading === REWRITE_SECTION)?.rows ?? [])
   .map((row) => row.match(/^\| `([^`]+)` \| `([^`]+)` \|$/)?.slice(1) ?? [row])
   .sort(([a], [b]) => b.length - a.length);
+
+// Bundled skills arrive with pstack, so they must not auto-trigger in sessions that don't use pstack. A kit skill ships
+// with `disable-model-invocation: true` as the last line of its frontmatter, unless it already sets the field.
+const HIDDEN = /^disable-model-invocation:/m;
+const hidden = (body) => {
+  const match = body.match(/^---\n([\s\S]*?)\n---/);
+  return !match || HIDDEN.test(match[1]) ? body : `---\n${match[1]}\ndisable-model-invocation: true${body.slice(match[0].length - 4)}`;
+};
 const rewritten = new Set();
 function source(path) {
   return rewrites.reduce((body, [from, to]) => {
@@ -315,7 +323,7 @@ function has(files, from, path) {
 }
 
 // Agent Plugins 1.0.0 (`$schema`) makes omp validate SKILL.md frontmatter against the closed Agent Skills
-// field set, which rejects `disable-model-invocation` and `paths` and drops 57 of 63 skills. Without `$schema`,
+// field set, which rejects `disable-model-invocation` and `paths` and drops 62 of 63 skills. Without `$schema`,
 // omp loads the tree through its Claude-compatible provider, which keeps both fields and hides the user-invoked
 // skills from the model's catalog. `.omp-plugin/plugin.json` also marks the agents' `model:` as omp selectors.
 const { $schema: _schema, ...upstreamFields } = upstreamManifest;
@@ -335,7 +343,10 @@ function render() {
     copies.map(([root, path]) => {
       const key = relative(ROOT_DIRS[root], path);
       const isPrompt = root !== ADAPTER_ROOT && /^(skills|agents)\/.*\.md$/.test(key);
-      return [key, isPrompt ? { ...file(path), bytes: Buffer.from(source(path)) } : file(path)];
+      if (!isPrompt) return [key, file(path)];
+      const body = source(path);
+      const hide = root === KIT && /^skills\/[^/]+\/SKILL\.md$/.test(key);
+      return [key, { ...file(path), bytes: Buffer.from(hide ? hidden(body) : body) }];
     }),
   );
   files.set(ADAPTER, { bytes: Buffer.from(ADAPTER_FRONTMATTER + adapter), executable: false });
@@ -389,6 +400,12 @@ for (const path of [...walk(UPSTREAM).map((path) => relative(ROOT, path)), ...[.
   const twin = byLowercase.get(path.toLowerCase());
   if (twin) dangling.push(`${path} and ${twin} differ only by case, which Windows cannot hold together`);
   byLowercase.set(path.toLowerCase(), path);
+}
+for (const { name, root } of skills) {
+  const frontmatter = text(files.get(`skills/${name}/SKILL.md`).bytes).match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
+  if (root !== "pstack" && !/^disable-model-invocation:\s*true\s*$/m.test(frontmatter)) {
+    dangling.push(`skills/${name} is bundled from ${root}, so it must ship with disable-model-invocation: true`);
+  }
 }
 for (const link of dangling) console.log(`FAIL ${link}`);
 if (dangling.length > 0) process.exit(1);
