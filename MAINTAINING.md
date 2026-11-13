@@ -34,7 +34,9 @@ Measured with `omp -p` on Sonnet 5, as passes out of runs:
 | `reflect` finds its transcript without listing other workspaces' session folders | 19/30 | 16/16 | The row gives `$PI_SESSION_FILE` as the only way and forbids listing session folders. |
 | `reflect` sends no `model` while per-call models are off | | 36/38 | Unchanged. In the 2 misses omp rejected the call and the model sent it again without `model`. |
 
-The model rule stays `alwaysApply`. Read on demand through `rule://pstack-models` instead, it scored 8/12 against 9/12, and in 3 of 6 feature runs the model never read it. A sentence saying omp approves every effort of an approved model scored 9/12 against 8/12 without it, no measurable difference, so the adapter leaves it out. About a quarter of delegations still leave `model` out.
+The model rule stays `alwaysApply`. Read on demand through `rule://pstack-models` instead, it scored 8/12 against 9/12, and in 3 of 6 feature runs the model never read it. As a TTSR rule scoped to the `task` tool, it scored 10/12 against 8/12 on pstack tasks, but it also fired on plain delegations that use no pstack skill and put pstack's model on 5 of 6 of them, against 0 of 6 for the always-on rule. omp injects a TTSR rule as a rule violation, so the model applies it. A sentence saying omp approves every effort of an approved model scored 9/12 against 8/12 without it, no measurable difference, so the adapter leaves it out. About a quarter of delegations still leave `model` out.
+
+`poteto-agent` does not use omp's `autoloadSkills`. Without it, Sonnet delegates read `poteto-mode` in 6 of 6 runs. With it, 5 of 6 read it again after the injection, so it only doubled the cost.
 
 On Opus 5.5 the same tree passed 2 of 2 delegation runs and 2 of 2 full `reflect` runs. Rewriting tool and field names in the text (`` `Task` `` to `` `task` ``, `subagent_type` to `agent`) was also tried and changed nothing: 0 of 3 delegation runs set `agent`, the same as without it.
 
