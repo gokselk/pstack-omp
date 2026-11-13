@@ -23,7 +23,9 @@ try {
   git(tmp, "init", "--quiet");
   git(tmp, "remote", "add", "origin", REPO);
   git(tmp, "sparse-checkout", "set", "pstack");
-  git(tmp, "fetch", "--quiet", "--depth", "1", "--filter=blob:none", "origin", ref);
+  // One request for the whole snapshot (about 6 MB). With --filter=blob:none the checkout fetched files on demand,
+  // and from a shared GitHub Actions runner those requests got HTTP 429.
+  git(tmp, "fetch", "--quiet", "--depth", "1", "origin", ref);
   git(tmp, "checkout", "--quiet", "FETCH_HEAD");
   const commit = git(tmp, "rev-parse", "HEAD");
   const date = git(tmp, "show", "-s", "--format=%cI", "HEAD");
