@@ -13,6 +13,7 @@ pstack skills use Cursor names. In omp, read this once per session, then map eac
 | Open a todolist | `todo` with `op: "init"`, one phase per playbook stage. Send it beside your next real tool call. Subagents have no `todo`, so they keep the list in their reply. |
 | Run another pstack skill (`/name` or "the **name** skill") | `read skill://<name>` and follow it. When you tell the user to type it, write `/skill:<name>`. |
 | The `deslop`, `control-cli`, `control-ui`, or `verify-this` skill from the `cursor-team-kit` plugin | pstack for omp ships all four, so there is nothing to install. `read skill://<name>` and follow it, as for a pstack skill. |
+| Cursor's built-in `create-skill` skill, `/create-skill` | `read skill://skill-creator` and follow it. pstack for omp ships Anthropic's skill-creator, adapted for omp. Its draft, test, and iterate loop runs test cases as `task` subagents, and its description optimization (`scripts/run_loop.py`) runs on `omp -p`. |
 | `Grep`, `Glob`, `Read` | `grep`, `glob`, `read`. |
 
 ## Subagent fields
@@ -89,3 +90,4 @@ omp has no Cursor Automations, Bugbot, Cursor cloud agents, or built-in PR tool.
 | Bugbot | Bugbot comments on a GitHub PR are ordinary review threads, so triage them with the forge command that the step gives. Skip a step that starts, waits for, or configures Bugbot when the PR has no Bugbot check or comment. |
 | Cursor cloud agents | `environment: "cloud"` maps to an isolated checkout, as in Subagent fields. Skip a step that needs the cloud agent itself, such as its dashboard status or its own machine. |
 | A built-in PR tool | Use the forge command that the step gives, such as `gh pr create`. `read pr://<n>` shows a GitHub PR and `pr://<n>/diff` its diff. That is not a skip, so write no line. |
+| Cursor's `/loop` command, such as `/loop until X` or `/loop 1h` | omp has no `/loop` and no recurring timer. To wake on an event (CI, a merge, a ref moving), run the watcher as a background `bash` job or a `task` subagent. Its result wakes the session when it finishes. Start it through the tool, not with `nohup`, `disown`, or a trailing `&`: a detached process cannot wake you and outlives the session. Give it an end, such as the event itself or a time limit. For a fixed tick such as `/loop 1h`, write the skip line once, then run the tick's audit at each phase boundary and each time a result wakes you. In a plan file, keep the literal `/loop 1h` line, because `check-plan.mjs` requires it. |

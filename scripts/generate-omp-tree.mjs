@@ -54,13 +54,14 @@ const GITHUB = "https://github.com/cursor/plugins";
 // TERMS entry lives in a script the sync does not fetch. A changed adapter is the signal to port both here.
 const CLAUDE_ADAPTER = "docs/harness/claude-code.md";
 const CLAUDE_ADAPTER_SHA256 = "c79e2283d3a83c6be3dd1cac33f9c074067c95e610ae6e0a16d9fdee84058927";
-// The adapter routes to setup-pstack, poteto-mode, deslop, control-cli, control-ui, and verify-this, and the README
-// names poteto-help.
-const REQUIRED_SKILLS = ["setup-pstack", "poteto-mode", "poteto-help", "deslop", "control-cli", "control-ui", "verify-this"];
+// The adapter routes to setup-pstack, poteto-mode, deslop, control-cli, control-ui, verify-this, and skill-creator, and
+// the README names poteto-help.
+const REQUIRED_SKILLS = ["setup-pstack", "poteto-mode", "poteto-help", "deslop", "control-cli", "control-ui", "verify-this", "skill-creator"];
 const LINK = /\]\(([^)\s]+)\)/g;
 
 // Every Cursor name a skill uses needs a row in the omp adapter. The keys are the upstream Claude Code generator's,
-// plus cursor-team-kit, whose skills pstack names and this tree ships.
+// plus cursor-team-kit, whose skills pstack names and this tree ships, and Cursor's create-skill and /loop, which the
+// Claude Code tree leaves unmapped.
 const TERMS = [
   { key: "`Task`", re: /`Task`|\bTask (tool|subagent|call)/ },
   { key: "`AskQuestion`", re: /AskQuestion/ },
@@ -85,6 +86,8 @@ const TERMS = [
   { key: "agent-transcripts", re: /agent-transcripts|\.cursor\/projects/ },
   { key: "Cursor-only features", re: /Bugbot|Cursor [Aa]utomation|cursor\.(sh|com)\/automations|[Cc]loud [Aa]gent|built-in PR tool/ },
   { key: "cursor-team-kit", re: /cursor-team-kit/ },
+  { key: "create-skill", re: /create-skill/ },
+  { key: "/loop", re: /`\/loop`|\/loop (until|\d)/ },
 ];
 const ROUTE_KEY = "Run another pstack skill";
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
