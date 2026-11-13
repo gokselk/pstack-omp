@@ -18,14 +18,30 @@ const ref = process.argv[2] ?? "main";
 if (ref.startsWith("-")) throw new Error(`ref ${JSON.stringify(ref)} looks like a git option`);
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 
+// github.com rate-limits anonymous git (HTTP 429), from shared Actions runners in particular. The fetch stays
+// anonymous and retries after a pause instead; the daily schedule picks up anything a failed run missed.
+const RETRY_AFTER_SECONDS = [30, 120];
+function fetchWithRetry(cwd, ...args) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return git(cwd, ...args);
+    } catch (error) {
+      const limited = /\b429\b|rate-limited/.test(String(error.stderr));
+      if (!limited || attempt >= RETRY_AFTER_SECONDS.length) throw error;
+      console.log(`github.com rate-limited the fetch; retrying in ${RETRY_AFTER_SECONDS[attempt]}s`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, RETRY_AFTER_SECONDS[attempt] * 1000);
+    }
+  }
+}
+
 const tmp = mkdtempSync(join(tmpdir(), "pstack-upstream-"));
 try {
   git(tmp, "init", "--quiet");
   git(tmp, "remote", "add", "origin", REPO);
   git(tmp, "sparse-checkout", "set", "pstack");
   // One request for the whole snapshot (about 6 MB). With --filter=blob:none the checkout fetched files on demand,
-  // and from a shared GitHub Actions runner those requests got HTTP 429.
-  git(tmp, "fetch", "--quiet", "--depth", "1", "origin", ref);
+  // one request each, and drew far more 429s.
+  fetchWithRetry(tmp, "fetch", "--quiet", "--depth", "1", "origin", ref);
   git(tmp, "checkout", "--quiet", "FETCH_HEAD");
   const commit = git(tmp, "rev-parse", "HEAD");
   const date = git(tmp, "show", "-s", "--format=%cI", "HEAD");
