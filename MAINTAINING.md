@@ -10,6 +10,8 @@ The tree also ships `skill-creator`, from anthropics/skills at commit `2c5958eca
 
 The tree leaves out one upstream skill, `make-bot-ui`. It builds a page whose buttons wake a Cursor Automation routine over `api2.cursor.sh`, and omp has no Cursor Automations. `DROPPED_SKILLS` in `scripts/generate-omp-tree.mjs` maps each skill left out to the reason. A relative link to it points at that skill on cursor/plugins `main`, like a link to any other upstream file the tree lacks.
 
+The tree replaces one upstream file, `skills/poteto-mode/scripts/worktree-audit.sh`, with an omp version. The worktree-cleanup playbook runs it to sort worktrees into buckets, and its LAST_CHAT column, the newest chat that operated in a worktree, keeps a worktree still in use out of `safe`. Upstream fills that column from `~/.cursor/projects/<slug>/agent-transcripts/`, which omp never writes, so the column stayed empty. The omp version reads two of omp's session folders, `~/.omp/agent/sessions/<encoded-cwd>/`: the worktree's own, where every chat started inside it counts, and the main repo's, where a chat counts when it names the worktree. It reads no other session folder, since those hold other workspaces' chats. The rest of the script is upstream's. omp encodes the canonical cwd as `omp://session.md` describes, and `omp -p` runs in worktrees under `$HOME` and `/tmp` produced the folder names the script computes. A chat names a path as it was typed, such as `/tmp/x` for a worktree that git lists as `/private/tmp/x` on macOS, so the script matches each spelling. The file lives in `adapter/overlays/`, which mirrors tree paths. Each file there ships byte for byte, executable bit included, in place of the upstream file at its path, with no adapter rows, path rewrites, or link fallback. `OVERLAYS` in the generator pins each one to the sha256 of the upstream file it was ported from, so an upstream change to that file stops the build until it is ported.
+
 The other skills and agents are upstream's, cursor-team-kit's included, apart from three generated changes:
 
 - Each skill or agent that uses Cursor names gets, under its H1, the adapter rows for the names it uses. The rows sit in the skill because models rarely open a separate adapter file.
@@ -48,6 +50,7 @@ Per-role models need `task.perCallModel: on` and each model named by a `modelRol
 | `upstream/UPSTREAM.json` | the cursor/plugins commit, and the git object id of each vendored path. |
 | `adapter/omp.md` | the omp adapter, shipped as `skills/pstack-omp-adapter/SKILL.md`. Edit this one. |
 | `adapter/skills/` | skills written for omp, such as the adapted `skill-creator`, shipped byte for byte as `skills/<name>/`. Edit these. |
+| `adapter/overlays/` | omp versions of upstream files, at their tree paths, shipped byte for byte in place of upstream's. Today only `skills/poteto-mode/scripts/worktree-audit.sh`. Edit these. |
 | `plugins/pstack/` | the generated plugin that omp installs. Do not edit it by hand. |
 | `.omp-plugin/marketplace.json` | the generated catalog. |
 | `release.json` | the generated version, `<upstream version>-omp.<n>`, and the digest of the content it was cut from. |
@@ -57,9 +60,9 @@ Per-role models need `task.perCallModel: on` and each model named by a `modelRol
 omp runs on Windows, and the plugin is built to work there. None of this has been run on Windows.
 
 - `.gitattributes` turns line-ending conversion off. With `core.autocrlf`, a clone would otherwise give the skills' shell scripts CRLF line endings, which break them.
-- The adapter ships no script of its own. A transcript is found through `$PI_SESSION_FILE`, which omp sets for every `bash` call.
+- A transcript is found through `$PI_SESSION_FILE`, which omp sets for every `bash` call.
 - The generator fails on a file name Windows cannot check out: a reserved character or device name, a trailing dot or space, or two names that differ only by case. The longest path in the plugin is 98 characters, which leaves room under the 260-character limit after omp's cache folder.
-- Upstream's own scripts (`worktree-audit.sh`, `log.sh`, `watch-pr`, `statechart`) are POSIX shell or start with a `#!` line. omp runs `bash` commands in its built-in shell on Windows too, but whether each script works there is untested.
+- Upstream's own scripts (`log.sh`, `watch-pr`, `statechart`) and the omp `worktree-audit.sh` are POSIX shell or start with a `#!` line. omp runs `bash` commands in its built-in shell on Windows too, but whether each script works there is untested. That includes whether `worktree-audit.sh` computes the session folder names omp uses there.
 - `skill-creator`'s `run_eval.py` reads `omp -p` output with `select`, as upstream's version does, and Python on Windows supports `select` only for sockets. There every query of its trigger check errors and counts as not triggered, so `run_loop.py` measures nothing.
 
 ## versions
@@ -87,6 +90,8 @@ The sync or the generator fails, and the scheduled run fails without pushing, wh
 - two skills from `upstream/pstack/skills/`, `upstream/cursor-team-kit/skills/`, and `adapter/skills/` share a name. The tree has one `skills/<name>/` folder for each name.
 - a skill in `upstream/` or `adapter/skills/` is named `pstack-omp-adapter`.
 - a row of the adapter's "Rewritten paths" table matches nothing upstream. Delete the row.
+- a file in `adapter/overlays/` has no pin in `OVERLAYS`, a pin has no file in `adapter/overlays/`, or the pinned path has no upstream file to replace.
+- upstream changes a file that `adapter/overlays/` replaces. Port the change into the overlay, then update its pin in `OVERLAYS` to the sha256 the failure names.
 - a skill's `name` differs from its folder, a relative link leaves the tree, a relative link in an `adapter/skills/` skill leaves its own folder or points at a file it lacks, a file name is one Windows cannot check out, or upstream's version is not `MAJOR.MINOR.PATCH`.
 
 GitHub emails you about the failed run. Fix the cause, regenerate, and commit. CI runs `node scripts/generate-omp-tree.mjs --check` and fails while the tree is out of date or while a path in `upstream/` differs from its object id in `upstream/UPSTREAM.json`.

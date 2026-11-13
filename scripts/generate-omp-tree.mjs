@@ -2,7 +2,7 @@
 
 // Generates the omp plugin tree (plugins/pstack), the omp marketplace catalog, and release.json from upstream/pstack,
 // the four cursor-team-kit skills that pstack's playbooks run or name (deslop, control-cli, control-ui, verify-this),
-// and the omp-owned skills in adapter/skills.
+// and the omp-owned skills in adapter/skills. The files in adapter/overlays replace the upstream files at their paths.
 // Ported from cursor/plugins scripts/generate-pstack-harness-trees.mjs (the Claude Code tree).
 // Usage: node scripts/generate-omp-tree.mjs [--check]
 //
@@ -62,6 +62,14 @@ const REQUIRED_SKILLS = ["setup-pstack", "poteto-mode", "poteto-help", "deslop",
 const DROPPED_SKILLS = {
   "make-bot-ui": "it builds a page whose buttons wake a Cursor Automation routine over api2.cursor.sh, and omp has no Cursor Automations",
 };
+// adapter/overlays mirrors tree paths. Each file there replaces the upstream file at its path byte for byte, with no
+// adapter rows, path rewrites, or link fallback. Each is pinned to the sha256 of the upstream file it was ported from,
+// so an upstream change to that file fails the build until it is ported.
+const OVERLAYS_DIR = join(ROOT_DIRS[ADAPTER_ROOT], "overlays");
+const OVERLAYS = {
+  // Upstream's fills LAST_CHAT from Cursor transcripts, which omp never writes.
+  "skills/poteto-mode/scripts/worktree-audit.sh": "06be04b38346ded24ce761d373726f98cd9b9737f20ec98214e88b5f08f521b8",
+};
 const LINK = /\]\(([^)\s]+)\)/g;
 
 // Every Cursor name a skill uses needs a row in the omp adapter. The keys are the upstream Claude Code generator's,
@@ -110,6 +118,7 @@ function file(path) {
 }
 
 const text = (bytes) => Buffer.from(bytes).toString("utf8");
+const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const upstreamSkillNames = new Set();
 const skills = [...SKILL_ROOTS, ADAPTER_ROOT].flatMap((root) =>
   readdirSync(join(ROOT_DIRS[root], "skills"))
@@ -125,6 +134,7 @@ const skillNames = skills.map(({ name }) => name);
 // A path under skills/<name>/ of a dropped upstream skill, relative to its root.
 const isDropped = (root, path) => root !== ADAPTER_ROOT && /^skills\/[^/]+\//.test(path) && Object.hasOwn(DROPPED_SKILLS, path.split("/")[1]);
 const skillDir = ({ name, root }) => join(ROOT_DIRS[root], "skills", name);
+const rootOf = (path) => skills.find(({ name }) => `${path}/`.startsWith(`skills/${name}/`))?.root ?? "pstack";
 const agents = readdirSync(AGENTS).filter((name) => name.endsWith(".md"));
 
 // The adapter's `## ` sections: prose before the table, and the table's rows.
@@ -239,11 +249,26 @@ for (const skill of REQUIRED_SKILLS) {
 for (const name of Object.keys(DROPPED_SKILLS)) {
   if (!upstreamSkillNames.has(name)) problems.push(`${name} is gone upstream. Delete it from DROPPED_SKILLS`);
 }
-const claudeAdapter = createHash("sha256").update(readFileSync(join(PSTACK, CLAUDE_ADAPTER))).digest("hex");
+const claudeAdapter = sha256(join(PSTACK, CLAUDE_ADAPTER));
 if (claudeAdapter !== CLAUDE_ADAPTER_SHA256) {
   problems.push(
     `upstream changed ${CLAUDE_ADAPTER} (sha256 ${claudeAdapter}). Port its new Cursor names to adapter/omp.md and TERMS, then update CLAUDE_ADAPTER_SHA256`,
   );
+}
+const overlays = existsSync(OVERLAYS_DIR) ? walk(OVERLAYS_DIR).map((path) => relative(OVERLAYS_DIR, path)) : [];
+for (const path of overlays) {
+  if (!Object.hasOwn(OVERLAYS, path)) problems.push(`adapter/overlays/${path} has no pin. Add the sha256 of the upstream file it replaces to OVERLAYS`);
+}
+for (const [path, pin] of Object.entries(OVERLAYS)) {
+  const root = rootOf(path);
+  const upstreamFile = join(ROOT_DIRS[root], path);
+  if (!overlays.includes(path)) problems.push(`OVERLAYS pins ${path}, but adapter/overlays/${path} is gone. Delete the pin`);
+  else if (root === ADAPTER_ROOT || isDropped(root, path) || !existsSync(upstreamFile)) {
+    problems.push(`adapter/overlays/${path} has no upstream file to replace. Delete it and its pin`);
+  } else {
+    const hash = sha256(upstreamFile);
+    if (hash !== pin) problems.push(`upstream changed ${path} (sha256 ${hash}). Port the change into adapter/overlays/${path}, then update its pin`);
+  }
 }
 // omp orders `<version>-omp.<n>` as a semver prerelease, which only works when upstream's version is a plain release.
 const upstreamManifest = JSON.parse(readFileSync(join(PSTACK, "plugin.json"), "utf8"));
@@ -261,8 +286,6 @@ for (const [from, to] of rewrites) {
 }
 for (const problem of problems) console.log(`FAIL ${problem}`);
 if (problems.length > 0) process.exit(1);
-
-const rootOf = (path) => skills.find(({ name }) => `${path}/`.startsWith(`skills/${name}/`))?.root ?? "pstack";
 
 // The root-relative path that a relative link in `from` points at, if that path exists in `from`'s upstream root. An
 // adapter skill has no upstream copy, so every relative link in it counts.
@@ -328,6 +351,7 @@ function render() {
       }),
     );
   }
+  for (const path of Object.keys(OVERLAYS)) files.set(path, file(join(OVERLAYS_DIR, path)));
   return files;
 }
 
