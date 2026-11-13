@@ -1,5 +1,7 @@
 # The pstack guide
 
+> **In omp.** Install pstack with `omp plugin marketplace add gokselk/pstack-omp` and `omp plugin install pstack@pstack-omp`. Then type each command in this guide as `/skill:<name>`, such as `/skill:setup-pstack`. Steps that need a Cursor-only feature are skipped in omp. Those features are Custom Modes, cloud agents and Projects, and automations, including the benny pack. The `pstack-omp-adapter` skill maps the rest.
+
 pstack works best when you stop micromanaging the agent. You describe what you want and how you'll know it's done. `/poteto-mode` picks the playbook, runs the other skills as the steps need them, and shows you the evidence. This guide teaches that habit with realistic prompts.
 
 Here's what you'll learn:

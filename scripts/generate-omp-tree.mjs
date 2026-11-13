@@ -41,6 +41,10 @@ const ADAPTER_FRONTMATTER = [
   "",
 ].join("\n");
 const GUIDE = "docs/guide";
+// The guide is written for Cursor. The note under the H1 of its front page and its setup page gives omp's install
+// commands and command form, and names the Cursor-only steps omp skips.
+const GUIDE_NOTE = "guide-note.md";
+const GUIDE_NOTE_PAGES = [`${GUIDE}/README.md`, `${GUIDE}/01-setup.md`];
 const TREE = "plugins/pstack";
 const OUT = join(ROOT, TREE);
 const MARKETPLACE = ".omp-plugin/marketplace.json";
@@ -255,6 +259,11 @@ if (claudeAdapter !== CLAUDE_ADAPTER_SHA256) {
     `upstream changed ${CLAUDE_ADAPTER} (sha256 ${claudeAdapter}). Port its new Cursor names to adapter/omp.md and TERMS, then update CLAUDE_ADAPTER_SHA256`,
   );
 }
+for (const page of GUIDE_NOTE_PAGES) {
+  const path = join(PSTACK, page);
+  if (!existsSync(path)) problems.push(`${page} is gone, but adapter/${GUIDE_NOTE} goes under its H1. Update GUIDE_NOTE_PAGES`);
+  else if (!/^# /m.test(readFileSync(path, "utf8"))) problems.push(`${page} has no H1 to put adapter/${GUIDE_NOTE} under`);
+}
 const overlays = existsSync(OVERLAYS_DIR) ? walk(OVERLAYS_DIR).map((path) => relative(OVERLAYS_DIR, path)) : [];
 for (const path of overlays) {
   if (!Object.hasOwn(OVERLAYS, path)) problems.push(`adapter/overlays/${path} has no pin. Add the sha256 of the upstream file it replaces to OVERLAYS`);
@@ -329,11 +338,12 @@ function render() {
     }),
   );
   files.set(ADAPTER, { bytes: Buffer.from(ADAPTER_FRONTMATTER + adapter), executable: false });
-  for (const [path, entry] of classes) {
-    if (!entry.wrap) continue;
-    const block = mappingFor(entry).text;
+  const underH1 = (path, block) => {
     files.get(path).bytes = Buffer.from(text(files.get(path).bytes).replace(/^(# .*)\n+/m, (_, h1) => `${h1}\n\n${block}\n\n`));
-  }
+  };
+  for (const [path, entry] of classes) if (entry.wrap) underH1(path, mappingFor(entry).text);
+  const guideNote = readFileSync(join(ROOT_DIRS[ADAPTER_ROOT], GUIDE_NOTE), "utf8").trim();
+  for (const page of GUIDE_NOTE_PAGES) underH1(page, guideNote);
   files.set("LICENSE", file(join(PSTACK, "LICENSE")));
   // cursor-team-kit is Cursor's copyright, not pstack's, so each of its skills carries the kit's LICENSE.
   for (const { name, root } of skills) {
