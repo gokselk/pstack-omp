@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-// Generates the omp plugin tree (plugins/pstack), the omp marketplace catalog, and release.json from upstream/pstack
-// and the four cursor-team-kit skills that pstack's playbooks run or name: deslop, control-cli, control-ui, verify-this.
+// Generates the omp plugin tree (plugins/pstack), the omp marketplace catalog, and release.json from upstream/pstack,
+// the four cursor-team-kit skills that pstack's playbooks run or name (deslop, control-cli, control-ui, verify-this),
+// and the omp-owned skills in adapter/skills.
 // Ported from cursor/plugins scripts/generate-pstack-harness-trees.mjs (the Claude Code tree).
 // Usage: node scripts/generate-omp-tree.mjs [--check]
 //
@@ -21,8 +22,12 @@ const PSTACK = join(UPSTREAM, "pstack");
 // control-ui names verify-this, which drives control-cli and control-ui. The tree ships all four beside pstack's own skills.
 const KIT = "cursor-team-kit";
 const SKILL_ROOTS = ["pstack", KIT];
+// adapter/skills holds skills this fork writes for omp, such as its adaptation of Anthropic's skill-creator. They ship
+// byte for byte: no adapter rows, no path rewrites, and no cursor/plugins link to fall back on.
+const ADAPTER_ROOT = "adapter";
+const ROOT_DIRS = { pstack: PSTACK, [KIT]: join(UPSTREAM, KIT), [ADAPTER_ROOT]: join(ROOT, "adapter") };
 const AGENTS = join(PSTACK, "agents");
-const ADAPTER_SOURCE = join(ROOT, "adapter", "omp.md");
+const ADAPTER_SOURCE = join(ROOT_DIRS[ADAPTER_ROOT], "omp.md");
 // The adapter ships as a hidden skill so every skill, agent, and subagent reaches it by one URL, with no path to work out.
 const ADAPTER_SKILL = "pstack-omp-adapter";
 const ADAPTER = `skills/${ADAPTER_SKILL}/SKILL.md`;
@@ -97,13 +102,13 @@ function file(path) {
 }
 
 const text = (bytes) => Buffer.from(bytes).toString("utf8");
-const skills = SKILL_ROOTS.flatMap((root) =>
-  readdirSync(join(UPSTREAM, root, "skills"))
-    .filter((name) => existsSync(join(UPSTREAM, root, "skills", name, "SKILL.md")))
+const skills = [...SKILL_ROOTS, ADAPTER_ROOT].flatMap((root) =>
+  readdirSync(join(ROOT_DIRS[root], "skills"))
+    .filter((name) => existsSync(join(ROOT_DIRS[root], "skills", name, "SKILL.md")))
     .map((name) => ({ name, root })),
 );
 const skillNames = skills.map(({ name }) => name);
-const skillDir = ({ name, root }) => join(UPSTREAM, root, "skills", name);
+const skillDir = ({ name, root }) => join(ROOT_DIRS[root], "skills", name);
 const agents = readdirSync(AGENTS).filter((name) => name.endsWith(".md"));
 
 // The adapter's `## ` sections: prose before the table, and the table's rows.
@@ -154,7 +159,7 @@ function classify(paths, entry, self) {
 }
 
 const classes = new Map([
-  ...skills.map((skill) => {
+  ...skills.filter(({ root }) => root !== ADAPTER_ROOT).map((skill) => {
     const dir = skillDir(skill);
     const md = walk(dir).filter((path) => path.endsWith(".md"));
     return [
@@ -201,9 +206,10 @@ for (const [path, { usesCursorNames, wrap }] of classes) {
   for (const key of usesCursorNames) users.set(key, [...(users.get(key) ?? []), path]);
 }
 for (const [index, skill] of skills.entries()) {
-  const folder = `upstream/${skill.root}/skills/${skill.name}`;
+  const folder = relative(ROOT, skillDir(skill));
   const twin = skills.slice(0, index).find(({ name }) => name === skill.name);
-  if (twin) problems.push(`${folder} and upstream/${twin.root}/skills/${skill.name} both want skills/${skill.name}`);
+  if (twin) problems.push(`${folder} and ${relative(ROOT, skillDir(twin))} both want skills/${skill.name}`);
+  if (skill.name === ADAPTER_SKILL) problems.push(`${folder} takes skills/${ADAPTER_SKILL}, which the omp adapter needs`);
   // omp lists a plugin skill by its frontmatter `name`; Cursor runs it by its folder name.
   const frontmatter = readFileSync(join(skillDir(skill), "SKILL.md"), "utf8").match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
   const name = frontmatter.match(/^name:(.*)$/m)?.[1].trim().replace(/^(["'])(.*)\1$/, "$2");
@@ -211,9 +217,8 @@ for (const [index, skill] of skills.entries()) {
   if (!SKILL_NAME.test(skill.name) || skill.name.length > 64) problems.push(`${folder} is not lowercase words joined by hyphens, at most 64 characters`);
 }
 for (const skill of REQUIRED_SKILLS) {
-  if (!skillNames.includes(skill)) problems.push(`skills/${skill} is gone upstream, but the omp tree points users or agents at it`);
+  if (!skillNames.includes(skill)) problems.push(`skills/${skill} is gone, but the omp tree points users or agents at it`);
 }
-if (skillNames.includes(ADAPTER_SKILL)) problems.push(`upstream added skills/${ADAPTER_SKILL}, which the omp adapter needs`);
 const claudeAdapter = createHash("sha256").update(readFileSync(join(PSTACK, CLAUDE_ADAPTER))).digest("hex");
 if (claudeAdapter !== CLAUDE_ADAPTER_SHA256) {
   problems.push(
@@ -239,12 +244,14 @@ if (problems.length > 0) process.exit(1);
 
 const rootOf = (path) => skills.find(({ name }) => `${path}/`.startsWith(`skills/${name}/`))?.root ?? "pstack";
 
-// The root-relative path that a relative link in `from` points at, if that path exists in `from`'s upstream root.
+// The root-relative path that a relative link in `from` points at, if that path exists in `from`'s upstream root. An
+// adapter skill has no upstream copy, so every relative link in it counts.
 function resolve(from, href) {
   const target = href.replace(/[#?].*/, "");
   if (!target || /^[a-z][a-z0-9+.-]*:/i.test(target)) return undefined;
   const path = posix.join(posix.dirname(from), target).replace(/\/$/, "");
-  return existsSync(join(UPSTREAM, rootOf(from), path)) ? path : undefined;
+  const root = rootOf(from);
+  return root === ADAPTER_ROOT || existsSync(join(ROOT_DIRS[root], path)) ? path : undefined;
 }
 
 // One tree path can come from either root, such as `LICENSE` from a kit skill, so a link stays relative only when its
@@ -264,13 +271,13 @@ const manifest = { ...upstreamFields, author: { name: MARKETPLACE_OWNER }, homep
 
 function render() {
   const copies = [
-    ...SKILL_ROOTS.flatMap((root) => walk(join(UPSTREAM, root, "skills")).map((path) => [root, path])),
+    ...[...SKILL_ROOTS, ADAPTER_ROOT].flatMap((root) => walk(join(ROOT_DIRS[root], "skills")).map((path) => [root, path])),
     ...[...walk(AGENTS), ...walk(join(PSTACK, GUIDE)), join(PSTACK, "README.md")].map((path) => ["pstack", path]),
   ];
   const files = new Map(
     copies.map(([root, path]) => {
-      const key = relative(join(UPSTREAM, root), path);
-      const isPrompt = /^(skills|agents)\/.*\.md$/.test(key);
+      const key = relative(ROOT_DIRS[root], path);
+      const isPrompt = root !== ADAPTER_ROOT && /^(skills|agents)\/.*\.md$/.test(key);
       return [key, isPrompt ? { ...file(path), bytes: Buffer.from(source(path)) } : file(path)];
     }),
   );
@@ -286,7 +293,7 @@ function render() {
     if (root === KIT) files.set(`skills/${name}/LICENSE`, file(join(UPSTREAM, KIT, "LICENSE")));
   }
   for (const [path, entry] of files) {
-    if (!path.endsWith(".md")) continue;
+    if (!path.endsWith(".md") || rootOf(path) === ADAPTER_ROOT) continue;
     entry.bytes = Buffer.from(
       text(entry.bytes).replace(LINK, (link, href) => {
         const target = resolve(path, href);
@@ -307,7 +314,11 @@ for (const [path, entry] of files) {
   if (!path.endsWith(".md")) continue;
   for (const [, href] of text(entry.bytes).matchAll(LINK)) {
     const target = resolve(path, href);
-    if (target && !has(files, path, target)) dangling.push(`${TREE}/${path} links to ${href}, which is not in the tree`);
+    if (!target) continue;
+    const folder = path.split("/").slice(0, 2).join("/");
+    if (rootOf(path) === ADAPTER_ROOT && !target.startsWith(`${folder}/`)) {
+      dangling.push(`${TREE}/${path} links to ${href}, outside ${folder}. An adapter skill ships byte for byte, so its links stay in its folder`);
+    } else if (!has(files, path, target)) dangling.push(`${TREE}/${path} links to ${href}, which is not in the tree`);
   }
 }
 // omp also runs on Windows, where a clone cannot check out these names. Upstream syncs land unreviewed, so every
