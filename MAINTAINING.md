@@ -6,7 +6,9 @@
 
 The tree also ships `deslop`, `control-cli`, `control-ui`, and `verify-this` from cursor-team-kit, Cursor's own plugin in cursor/plugins. pstack's playbooks run `deslop` before every commit and a control skill when shipping a CLI or UI, and omp users have no cursor-team-kit. `control-ui` names `verify-this`, which drives `control-cli` and `control-ui` for before and after evidence, so it ships too. The four are MIT with Cursor's copyright, not pstack's, so each skill folder carries cursor-team-kit's `LICENSE`. They use no Cursor name today, so their `SKILL.md` ships byte for byte. An adapter row tells the pstack skills that name cursor-team-kit that all four are already installed.
 
-The skills and agents are upstream's, cursor-team-kit's included, apart from three generated changes:
+The tree also ships `skill-creator`, from anthropics/skills at commit `2c5958ecac7cee2b583967a2c4981d0f4a75c579`. pstack's skills hand skill authoring to Cursor's built-in `create-skill`, which omp lacks, and an adapter row sends them to `skill-creator` instead. It is a copy adapted by hand in `adapter/skills/skill-creator/`, and the daily sync does not touch it. Its test runs use omp's `task` tool, and its trigger check and description optimization run on `omp -p`. It is Apache-2.0, so `LICENSE.txt` stays beside its `SKILL.md`, and each file changed from upstream says so in a notice near its top. To update it, diff upstream's `skills/skill-creator/` from that commit to the new one, port the changes by hand, keep the notices, and record the new commit here. The generator ships every folder in `adapter/skills/` byte for byte, with no adapter rows, path rewrites, or link fallback.
+
+The other skills and agents are upstream's, cursor-team-kit's included, apart from three generated changes:
 
 - Each skill or agent that uses Cursor names gets, under its H1, the adapter rows for the names it uses. The rows sit in the skill because models rarely open a separate adapter file.
 - The paths in the adapter's "Rewritten paths" table are swapped in the text. Today those are `.cursor/skills/` and `~/.cursor/skills/`.
@@ -43,6 +45,7 @@ Per-role models need `task.perCallModel: on` and each model named by a `modelRol
 | `upstream/cursor-team-kit/` | `LICENSE` and the `deslop`, `control-cli`, `control-ui`, and `verify-this` skills from cursor/plugins `cursor-team-kit/`, unedited. |
 | `upstream/UPSTREAM.json` | the cursor/plugins commit, and the git object id of each vendored path. |
 | `adapter/omp.md` | the omp adapter, shipped as `skills/pstack-omp-adapter/SKILL.md`. Edit this one. |
+| `adapter/skills/` | skills written for omp, such as the adapted `skill-creator`, shipped byte for byte as `skills/<name>/`. Edit these. |
 | `plugins/pstack/` | the generated plugin that omp installs. Do not edit it by hand. |
 | `.omp-plugin/marketplace.json` | the generated catalog. |
 | `release.json` | the generated version, `<upstream version>-omp.<n>`, and the digest of the content it was cut from. |
@@ -55,6 +58,7 @@ omp runs on Windows, and the plugin is built to work there. None of this has bee
 - The adapter ships no script of its own. A transcript is found through `$PI_SESSION_FILE`, which omp sets for every `bash` call.
 - The generator fails on a file name Windows cannot check out: a reserved character or device name, a trailing dot or space, or two names that differ only by case. The longest path in the plugin is 98 characters, which leaves room under the 260-character limit after omp's cache folder.
 - Upstream's own scripts (`worktree-audit.sh`, `log.sh`, `watch-pr`, `statechart`) are POSIX shell or start with a `#!` line. omp runs `bash` commands in its built-in shell on Windows too, but whether each script works there is untested.
+- `skill-creator`'s `run_eval.py` reads `omp -p` output with `select`, as upstream's version does, and Python on Windows supports `select` only for sockets. There every query of its trigger check errors and counts as not triggered, so `run_loop.py` measures nothing.
 
 ## versions
 
@@ -76,10 +80,10 @@ The sync or the generator fails, and the scheduled run fails without pushing, wh
 - a path in `VENDORED` is gone upstream. The sync names it. Drop it from `VENDORED`, or vendor what replaced it.
 - upstream changes `docs/harness/claude-code.md`. Upstream adds a row there for each Cursor name its skills start using, and the matching `TERMS` entry lives in a script the sync does not fetch. Port the change to `adapter/omp.md` and `TERMS`, then update `CLAUDE_ADAPTER_SHA256` in the generator.
 - a skill uses a Cursor name in `TERMS` that `adapter/omp.md` has no row or section for.
-- `setup-pstack`, `poteto-mode`, `poteto-help`, `deslop`, `control-cli`, `control-ui`, or `verify-this` is gone. The adapter and the README point at them.
-- a skill in `upstream/cursor-team-kit/skills/` has the name of one in `upstream/pstack/skills/`. The tree has one `skills/<name>/` folder for both.
-- upstream adds a skill named `pstack-omp-adapter`.
+- `setup-pstack`, `poteto-mode`, `poteto-help`, `deslop`, `control-cli`, `control-ui`, `verify-this`, or `skill-creator` is gone. The adapter and the README point at them.
+- two skills from `upstream/pstack/skills/`, `upstream/cursor-team-kit/skills/`, and `adapter/skills/` share a name. The tree has one `skills/<name>/` folder for each name.
+- a skill in `upstream/` or `adapter/skills/` is named `pstack-omp-adapter`.
 - a row of the adapter's "Rewritten paths" table matches nothing upstream. Delete the row.
-- a skill's `name` differs from its folder, a relative link leaves the tree, a file name is one Windows cannot check out, or upstream's version is not `MAJOR.MINOR.PATCH`.
+- a skill's `name` differs from its folder, a relative link leaves the tree, a relative link in an `adapter/skills/` skill leaves its own folder or points at a file it lacks, a file name is one Windows cannot check out, or upstream's version is not `MAJOR.MINOR.PATCH`.
 
 GitHub emails you about the failed run. Fix the cause, regenerate, and commit. CI runs `node scripts/generate-omp-tree.mjs --check` and fails while the tree is out of date or while a path in `upstream/` differs from its object id in `upstream/UPSTREAM.json`.
