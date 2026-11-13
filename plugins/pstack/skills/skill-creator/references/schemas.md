@@ -1,3 +1,5 @@
+<!-- Modified for omp by pstack-omp (2026): timing.json comes from an omp task result, which may carry no token count. -->
+
 # JSON Schemas
 
 This document defines the JSON schemas used by skill-creator.
@@ -198,7 +200,7 @@ Output from the executor agent. Located at `<run-dir>/outputs/metrics.json`.
 
 Wall clock timing for a run. Located at `<run-dir>/timing.json`.
 
-**How to capture:** When a subagent task completes, the task notification includes `total_tokens` and `duration_ms`. Save these immediately — they are not persisted anywhere else and cannot be recovered after the fact.
+**How to capture:** When an omp `task` run finishes, its result reports the run's duration and cost, and a token count only when omp shows one. Save what it gives you immediately, and leave `total_tokens` out when there is no count. These numbers are not persisted anywhere else and cannot be recovered after the fact.
 
 ```json
 {
