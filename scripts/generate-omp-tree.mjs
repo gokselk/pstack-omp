@@ -77,8 +77,8 @@ const OVERLAYS = {
 const LINK = /\]\(([^)\s]+)\)/g;
 
 // Every Cursor name a skill uses needs a row in the omp adapter. The keys are the upstream Claude Code generator's,
-// plus cursor-team-kit, whose skills pstack names and this tree ships, and Cursor's create-skill and /loop, which the
-// Claude Code tree leaves unmapped.
+// plus cursor-team-kit, whose skills pstack names and this tree ships, and Cursor's create-skill, /loop, and Custom
+// Modes, which the Claude Code tree leaves unmapped.
 const TERMS = [
   { key: "`Task`", re: /`Task`|\bTask (tool|subagent|call)/ },
   { key: "`AskQuestion`", re: /AskQuestion/ },
@@ -105,6 +105,7 @@ const TERMS = [
   { key: "cursor-team-kit", re: /cursor-team-kit/ },
   { key: "create-skill", re: /create-skill/ },
   { key: "/loop", re: /`\/loop`|\/loop (until|\d)/ },
+  { key: "Custom Mode", re: /Custom Modes?|custom modes?/ },
 ];
 const ROUTE_KEY = "Run another pstack skill";
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
