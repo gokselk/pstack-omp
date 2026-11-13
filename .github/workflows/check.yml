@@ -1,0 +1,24 @@
+name: Check omp tree
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check generated omp tree
+        run: node scripts/generate-omp-tree.mjs --check
+
+      - name: Check upstream/pstack is upstream's, unedited
+        run: |
+          test "$(git rev-parse HEAD:upstream/pstack)" = "$(node -p 'require("./upstream/UPSTREAM.json").tree')" ||
+            { echo "upstream/pstack differs from the tree in upstream/UPSTREAM.json. Run node scripts/sync-upstream.mjs."; exit 1; }
