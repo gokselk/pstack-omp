@@ -27,15 +27,14 @@ omp injects every `alwaysApply: true` rule in `~/.omp/agent/rules/` into each ne
 - Detect. Run `omp models --json` in `bash`. The detected models are its chat models, each written `<provider>/<model-id>:<effort>` with an effort the model supports, such as `anthropic/claude-opus-5-5:xhigh`. The `:<effort>` suffix is the effort token, so the budget step works as written.
 - Defaults. Map each default slug with the Models rows: `claude-opus-5-5-xhigh` is `anthropic/claude-opus-5-5:xhigh` when that model is detected. A default whose family is not detected is `inherit-parent`.
 - Write. Write `~/.omp/agent/rules/pstack-models.md` with the frontmatter `description: pstack per-role model choices (overrides skill defaults)` and `alwaysApply: true`, then the comment lines, the `# budget` line, and one line per role from step 5. Overwrite the whole file. Never put the role lines in `AGENTS.md`.
-- Approve. A per-call `model` works only with `task.perCallModel: on` and each written selector named by a `modelRoles` value in user settings. Project settings never approve a model. Show the user this block for `~/.omp/agent/config.yml`, with one `pstack-<n>` role per distinct real selector, and write it only after they confirm. Keep every key already in the file.
-
-```yaml
-task:
-  perCallModel: on
-modelRoles:
-  pstack-1: anthropic/claude-opus-5-5:xhigh
-  pstack-2: xai/grok-4.7:xhigh
-```
+- Approve. omp runs a per-call `model` only when three things hold. `task.perCallModel` is `on`. A chat role in `modelRoles` names the same `<provider>/<model-id>`, at any effort. If `task.perCallModelAllow` is not empty, it lists that `<provider>/<model-id>`. Project settings never approve a model. `read` `cfg://task` and `cfg://modelRoles`. They show this session's values, and those decide approval. A value whose `source` is `session override` holds for this session only, as when `--model` replaces the `default` role. A save writes the value you send to the global config and to this session. So build each value you save from the global one in `~/.omp/agent/config.yml`, never from a session override. Then change only what differs, each change a `write` to a `cfg://` path:
+  - If `task.perCallModel` is not `on`, write `on` to `cfg://task/perCallModel/save`.
+  - setup-pstack owns every `modelRoles` role whose name starts with `pstack-`, and no other role. A model approved only through one of the user's own roles stops being approved when the user changes that role, so pstack keeps its own approvals. The pstack set is one role for each base model the rule names, even when another role already names that model. Name it `pstack-<model-id>`, the model id without the provider, and give it the value `<provider>/<model-id>` with no effort, such as `pstack-grok-4.7: xai/grok-4.7` or `pstack-claude-sonnet-5-5: anthropic/claude-sonnet-5-5`. If two providers serve the same model id, append the provider, as in `pstack-grok-4.7-openrouter`. When the saved `pstack-*` roles differ from the pstack set, write the whole record to `cfg://modelRoles/save`: every saved role whose name does not start with `pstack-`, unchanged, plus the pstack set. Saving replaces the record, so a `pstack-*` role whose model the rule no longer names drops out. Never add, edit, or remove a role whose name does not start with `pstack-`.
+  - If the allowlist is not empty and leaves the model out, ask the user first, because the allowlist is a limit they chose. If they agree, write the whole list with the model added to `cfg://task/perCallModelAllow/save`.
+  - If a rule effort is above `task.maxEffort`, tell the user that the role runs at that cap.
+  omp asks the user to approve each write, so do not ask before a write, except about the allowlist. Never add an allowlist the user has not set. Never edit `config.yml` or run `omp config set`.
+- Check. For each model that gained a `pstack-*` role, spawn one `task` with that `model` and the task "reply ok". A `not approved` error names the setting that is still missing.
+- Under `omp -p`, or anywhere else without an interactive session, `cfg://` writes fail. Print the settings for the user to set, and stop.
 
 Write `~/.cursor/rules/pstack-models.mdc`, an always-applied rule that sets pstack's model per role.
 
