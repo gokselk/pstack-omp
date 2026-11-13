@@ -12,6 +12,7 @@ pstack skills use Cursor names. In omp, read this once per session, then map eac
 | `AskQuestion` | `ask`, one HTML form: radio inputs for one-of, checkboxes for many-of, the recommended option preselected. In `-p` mode and in subagents it is absent or fails, so ask in plain text, or put the question in your final answer. |
 | Open a todolist | `todo` with `op: "init"`, one phase per playbook stage. Send it beside your next real tool call. Subagents have no `todo`, so they keep the list in their reply. |
 | Run another pstack skill (`/name` or "the **name** skill") | `read skill://<name>` and follow it. When you tell the user to type it, write `/skill:<name>`. |
+| The `deslop`, `control-cli`, or `control-ui` skill from the `cursor-team-kit` plugin | pstack for omp ships all three, so there is nothing to install. `read skill://<name>` and follow it, as for a pstack skill. |
 | `Grep`, `Glob`, `Read` | `grep`, `glob`, `read`. |
 
 ## Subagent fields

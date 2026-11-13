@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-// Generates the omp plugin tree (plugins/pstack), the omp marketplace catalog, and release.json from upstream/pstack.
+// Generates the omp plugin tree (plugins/pstack), the omp marketplace catalog, and release.json from upstream/pstack
+// and the cursor-team-kit skills that pstack's playbooks run.
 // Ported from cursor/plugins scripts/generate-pstack-harness-trees.mjs (the Claude Code tree).
 // Usage: node scripts/generate-omp-tree.mjs [--check]
 //
@@ -14,8 +15,12 @@ import { dirname, join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const PSTACK = join(ROOT, "upstream", "pstack");
-const SKILLS = join(PSTACK, "skills");
+const UPSTREAM = join(ROOT, "upstream");
+const PSTACK = join(UPSTREAM, "pstack");
+// pstack's playbooks run deslop, control-cli, and control-ui from Cursor's cursor-team-kit plugin, which omp lacks, so
+// the tree ships them beside pstack's own skills.
+const KIT = "cursor-team-kit";
+const SKILL_ROOTS = ["pstack", KIT];
 const AGENTS = join(PSTACK, "agents");
 const ADAPTER_SOURCE = join(ROOT, "adapter", "omp.md");
 // The adapter ships as a hidden skill so every skill, agent, and subagent reaches it by one URL, with no path to work out.
@@ -44,11 +49,13 @@ const GITHUB = "https://github.com/cursor/plugins";
 // TERMS entry lives in a script the sync does not fetch. A changed adapter is the signal to port both here.
 const CLAUDE_ADAPTER = "docs/harness/claude-code.md";
 const CLAUDE_ADAPTER_SHA256 = "c79e2283d3a83c6be3dd1cac33f9c074067c95e610ae6e0a16d9fdee84058927";
-// The adapter routes to setup-pstack and poteto-mode, and the README names poteto-help.
-const REQUIRED_SKILLS = ["setup-pstack", "poteto-mode", "poteto-help"];
+// The adapter routes to setup-pstack, poteto-mode, deslop, control-cli, and control-ui, and the README names
+// poteto-help.
+const REQUIRED_SKILLS = ["setup-pstack", "poteto-mode", "poteto-help", "deslop", "control-cli", "control-ui"];
 const LINK = /\]\(([^)\s]+)\)/g;
 
-// Same keys as the upstream Claude Code generator: every Cursor name a skill uses needs a row in the omp adapter.
+// Every Cursor name a skill uses needs a row in the omp adapter. The keys are the upstream Claude Code generator's,
+// plus cursor-team-kit, whose skills pstack names and this tree ships.
 const TERMS = [
   { key: "`Task`", re: /`Task`|\bTask (tool|subagent|call)/ },
   { key: "`AskQuestion`", re: /AskQuestion/ },
@@ -72,6 +79,7 @@ const TERMS = [
   { key: ".cursor/rules/", re: /\.cursor\/rules|always-applied rule/ },
   { key: "agent-transcripts", re: /agent-transcripts|\.cursor\/projects/ },
   { key: "Cursor-only features", re: /Bugbot|Cursor [Aa]utomation|cursor\.(sh|com)\/automations|[Cc]loud [Aa]gent|built-in PR tool/ },
+  { key: "cursor-team-kit", re: /cursor-team-kit/ },
 ];
 const ROUTE_KEY = "Run another pstack skill";
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -89,7 +97,13 @@ function file(path) {
 }
 
 const text = (bytes) => Buffer.from(bytes).toString("utf8");
-const skills = readdirSync(SKILLS).filter((name) => existsSync(join(SKILLS, name, "SKILL.md")));
+const skills = SKILL_ROOTS.flatMap((root) =>
+  readdirSync(join(UPSTREAM, root, "skills"))
+    .filter((name) => existsSync(join(UPSTREAM, root, "skills", name, "SKILL.md")))
+    .map((name) => ({ name, root })),
+);
+const skillNames = skills.map(({ name }) => name);
+const skillDir = ({ name, root }) => join(UPSTREAM, root, "skills", name);
 const agents = readdirSync(AGENTS).filter((name) => name.endsWith(".md"));
 
 // The adapter's `## ` sections: prose before the table, and the table's rows.
@@ -124,7 +138,7 @@ function source(path) {
 
 // Cursor names used in `paths`, and whether `entry` has an H1 to put the adapter rows under.
 function classify(paths, entry, self) {
-  const others = skills.filter((name) => name !== self).join("|");
+  const others = skillNames.filter((name) => name !== self).join("|");
   const route = new RegExp(`the \\*\\*(?<bold>${others})\\*\\* skill|\`/(?<command>${others})\``, "g");
   const linksToSkill = (line, name) => line.includes(`(../${name}/`);
   const namesBareSkill = (line) =>
@@ -141,9 +155,12 @@ function classify(paths, entry, self) {
 
 const classes = new Map([
   ...skills.map((skill) => {
-    const dir = join(SKILLS, skill);
+    const dir = skillDir(skill);
     const md = walk(dir).filter((path) => path.endsWith(".md"));
-    return [`skills/${skill}/SKILL.md`, { ...classify(md, join(dir, "SKILL.md"), skill), name: skill, what: "skill" }];
+    return [
+      `skills/${skill.name}/SKILL.md`,
+      { ...classify(md, join(dir, "SKILL.md"), skill.name), name: skill.name, what: "skill" },
+    ];
   }),
   ...agents.map((agent) => {
     const path = join(AGENTS, agent);
@@ -183,17 +200,20 @@ for (const [path, { usesCursorNames, wrap }] of classes) {
   if (usesCursorNames.size > 0 && !wrap) problems.push(`${path} uses Cursor names but has no H1`);
   for (const key of usesCursorNames) users.set(key, [...(users.get(key) ?? []), path]);
 }
-for (const skill of skills) {
+for (const [index, skill] of skills.entries()) {
+  const folder = `upstream/${skill.root}/skills/${skill.name}`;
+  const twin = skills.slice(0, index).find(({ name }) => name === skill.name);
+  if (twin) problems.push(`${folder} and upstream/${twin.root}/skills/${skill.name} both want skills/${skill.name}`);
   // omp lists a plugin skill by its frontmatter `name`; Cursor runs it by its folder name.
-  const frontmatter = readFileSync(join(SKILLS, skill, "SKILL.md"), "utf8").match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
+  const frontmatter = readFileSync(join(skillDir(skill), "SKILL.md"), "utf8").match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
   const name = frontmatter.match(/^name:(.*)$/m)?.[1].trim().replace(/^(["'])(.*)\1$/, "$2");
-  if (name !== skill) problems.push(`skills/${skill}/SKILL.md has name ${JSON.stringify(name ?? "")}, not its folder name ${skill}`);
-  if (!SKILL_NAME.test(skill) || skill.length > 64) problems.push(`skills/${skill} is not lowercase words joined by hyphens, at most 64 characters`);
+  if (name !== skill.name) problems.push(`${folder}/SKILL.md has name ${JSON.stringify(name ?? "")}, not its folder name ${skill.name}`);
+  if (!SKILL_NAME.test(skill.name) || skill.name.length > 64) problems.push(`${folder} is not lowercase words joined by hyphens, at most 64 characters`);
 }
 for (const skill of REQUIRED_SKILLS) {
-  if (!skills.includes(skill)) problems.push(`skills/${skill} is gone upstream, but the omp tree points users or agents at it`);
+  if (!skillNames.includes(skill)) problems.push(`skills/${skill} is gone upstream, but the omp tree points users or agents at it`);
 }
-if (skills.includes(ADAPTER_SKILL)) problems.push(`upstream added skills/${ADAPTER_SKILL}, which the omp adapter needs`);
+if (skillNames.includes(ADAPTER_SKILL)) problems.push(`upstream added skills/${ADAPTER_SKILL}, which the omp adapter needs`);
 const claudeAdapter = createHash("sha256").update(readFileSync(join(PSTACK, CLAUDE_ADAPTER))).digest("hex");
 if (claudeAdapter !== CLAUDE_ADAPTER_SHA256) {
   problems.push(
@@ -217,20 +237,25 @@ for (const [from, to] of rewrites) {
 for (const problem of problems) console.log(`FAIL ${problem}`);
 if (problems.length > 0) process.exit(1);
 
-// The pstack-relative path that a relative link in `from` points at, if that path exists upstream.
+const rootOf = (path) => skills.find(({ name }) => `${path}/`.startsWith(`skills/${name}/`))?.root ?? "pstack";
+
+// The root-relative path that a relative link in `from` points at, if that path exists in `from`'s upstream root.
 function resolve(from, href) {
   const target = href.replace(/[#?].*/, "");
   if (!target || /^[a-z][a-z0-9+.-]*:/i.test(target)) return undefined;
   const path = posix.join(posix.dirname(from), target).replace(/\/$/, "");
-  return existsSync(join(PSTACK, path)) ? path : undefined;
+  return existsSync(join(UPSTREAM, rootOf(from), path)) ? path : undefined;
 }
 
-function has(files, path) {
+// One tree path can come from either root, such as `LICENSE` from a kit skill, so a link stays relative only when its
+// target came from the link's own root.
+function has(files, from, path) {
+  if (rootOf(path) !== rootOf(from)) return false;
   return files.has(path) || [...files.keys()].some((key) => key.startsWith(`${path}/`));
 }
 
 // Agent Plugins 1.0.0 (`$schema`) makes omp validate SKILL.md frontmatter against the closed Agent Skills
-// field set, which rejects `disable-model-invocation` and `paths` and drops 57 of 58 skills. Without `$schema`,
+// field set, which rejects `disable-model-invocation` and `paths` and drops 57 of 61 skills. Without `$schema`,
 // omp loads the tree through its Claude-compatible provider, which keeps both fields and hides the user-invoked
 // skills from the model's catalog. `.omp-plugin/plugin.json` also marks the agents' `model:` as omp selectors.
 const { $schema: _schema, ...upstreamFields } = upstreamManifest;
@@ -238,10 +263,13 @@ const { $schema: _schema, ...upstreamFields } = upstreamManifest;
 const manifest = { ...upstreamFields, author: { name: MARKETPLACE_OWNER }, homepage: FORK, repository: FORK };
 
 function render() {
-  const copies = [...walk(SKILLS), ...walk(AGENTS), ...walk(join(PSTACK, GUIDE)), join(PSTACK, "README.md")];
+  const copies = [
+    ...SKILL_ROOTS.flatMap((root) => walk(join(UPSTREAM, root, "skills")).map((path) => [root, path])),
+    ...[...walk(AGENTS), ...walk(join(PSTACK, GUIDE)), join(PSTACK, "README.md")].map((path) => ["pstack", path]),
+  ];
   const files = new Map(
-    copies.map((path) => {
-      const key = relative(PSTACK, path);
+    copies.map(([root, path]) => {
+      const key = relative(join(UPSTREAM, root), path);
       const isPrompt = /^(skills|agents)\/.*\.md$/.test(key);
       return [key, isPrompt ? { ...file(path), bytes: Buffer.from(source(path)) } : file(path)];
     }),
@@ -253,35 +281,40 @@ function render() {
     files.get(path).bytes = Buffer.from(text(files.get(path).bytes).replace(/^(# .*)\n+/m, (_, h1) => `${h1}\n\n${block}\n\n`));
   }
   files.set("LICENSE", file(join(PSTACK, "LICENSE")));
+  // cursor-team-kit is Cursor's copyright, not pstack's, so each of its skills carries the kit's LICENSE.
+  for (const { name, root } of skills) {
+    if (root === KIT) files.set(`skills/${name}/LICENSE`, file(join(UPSTREAM, KIT, "LICENSE")));
+  }
   for (const [path, entry] of files) {
     if (!path.endsWith(".md")) continue;
     entry.bytes = Buffer.from(
       text(entry.bytes).replace(LINK, (link, href) => {
         const target = resolve(path, href);
-        if (!target || target.split("/")[0] === ".." || has(files, target)) return link;
-        const kind = statSync(join(PSTACK, target)).isDirectory() ? "tree" : "blob";
-        return `](${GITHUB}/${kind}/main/pstack/${target}${href.slice(href.search(/[#?]|$/))})`;
+        if (!target || target.split("/")[0] === ".." || has(files, path, target)) return link;
+        const root = rootOf(path);
+        const kind = statSync(join(UPSTREAM, root, target)).isDirectory() ? "tree" : "blob";
+        return `](${GITHUB}/${kind}/main/${root}/${target}${href.slice(href.search(/[#?]|$/))})`;
       }),
     );
   }
   return files;
 }
 
-// omp installs only the tree, so a relative link that works from upstream/pstack has to work inside the tree too.
+// omp installs only the tree, so a relative link that works from upstream/ has to work inside the tree too.
 const files = render();
 const dangling = [];
 for (const [path, entry] of files) {
   if (!path.endsWith(".md")) continue;
   for (const [, href] of text(entry.bytes).matchAll(LINK)) {
     const target = resolve(path, href);
-    if (target && !has(files, target)) dangling.push(`${TREE}/${path} links to ${href}, which is not in the tree`);
+    if (target && !has(files, path, target)) dangling.push(`${TREE}/${path} links to ${href}, which is not in the tree`);
   }
 }
 // omp also runs on Windows, where a clone cannot check out these names. Upstream syncs land unreviewed, so every
 // file of the vendored copy and of the tree is checked here.
 const WINDOWS_RESERVED = /[<>:"|?*\\\x00-\x1f]|[. ]$|^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 const byLowercase = new Map();
-for (const path of [...walk(PSTACK).map((path) => relative(ROOT, path)), ...[...files.keys()].map((path) => `${TREE}/${path}`)]) {
+for (const path of [...walk(UPSTREAM).map((path) => relative(ROOT, path)), ...[...files.keys()].map((path) => `${TREE}/${path}`)]) {
   if (path.split("/").some((segment) => WINDOWS_RESERVED.test(segment))) dangling.push(`${path} is not a file name Windows allows`);
   const twin = byLowercase.get(path.toLowerCase());
   if (twin) dangling.push(`${path} and ${twin} differ only by case, which Windows cannot hold together`);
