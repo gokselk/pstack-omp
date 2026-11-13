@@ -1,8 +1,13 @@
 {
   "repository": "https://github.com/cursor/plugins",
-  "path": "pstack",
-  "ref": "main",
+  "ref": "de8ee15dd1194627d21eb5fcd41cb1873208dabb",
   "commit": "de8ee15dd1194627d21eb5fcd41cb1873208dabb",
   "date": "2026-11-09T19:28:06-08:00",
-  "tree": "4719e1c4b4c43bac85d4206a8b41dd2899769c1c"
+  "objects": {
+    "pstack": "4719e1c4b4c43bac85d4206a8b41dd2899769c1c",
+    "cursor-team-kit/LICENSE": "ca2bba771cd39dbef6acf96b52481133983451f3",
+    "cursor-team-kit/skills/control-cli": "21f3eee2663ae7c78464bfc2a69f6a8cc6c4f7ed",
+    "cursor-team-kit/skills/control-ui": "797e6d20a029b2ae757a97951278d308f3b53026",
+    "cursor-team-kit/skills/deslop": "ac9ba043f9dd3b3a8850de6624ec5bc12e375599"
+  }
 }

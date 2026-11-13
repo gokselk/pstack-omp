@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Sync upstream/pstack
+      - name: Sync upstream/
         env:
           REF: ${{ inputs.ref || 'main' }}
         run: node scripts/sync-upstream.mjs "$REF"
@@ -54,6 +54,9 @@ jobs:
           git add -A
           git commit -m "Sync upstream pstack $version (cursor/plugins@$commit)"
           # `git add` honours upstream's .gitignore, so make sure the commit holds every upstream file.
-          test "$(git rev-parse HEAD:upstream/pstack)" = "$(node -p 'require("./upstream/UPSTREAM.json").tree')" ||
-            { echo "The commit lost files from upstream/pstack. Not pushing."; exit 1; }
+          objects=$(node -p 'Object.entries(require("./upstream/UPSTREAM.json").objects).map((entry) => entry.join(" ")).join("\n")')
+          while read -r path id; do
+            test "$(git rev-parse "HEAD:upstream/$path")" = "$id" ||
+              { echo "The commit lost files from upstream/$path. Not pushing."; exit 1; }
+          done <<< "$objects"
           git push

@@ -18,7 +18,10 @@ jobs:
       - name: Check generated omp tree
         run: node scripts/generate-omp-tree.mjs --check
 
-      - name: Check upstream/pstack is upstream's, unedited
+      - name: Check upstream/ is upstream's, unedited
         run: |
-          test "$(git rev-parse HEAD:upstream/pstack)" = "$(node -p 'require("./upstream/UPSTREAM.json").tree')" ||
-            { echo "upstream/pstack differs from the tree in upstream/UPSTREAM.json. Run node scripts/sync-upstream.mjs."; exit 1; }
+          objects=$(node -p 'Object.entries(require("./upstream/UPSTREAM.json").objects).map((entry) => entry.join(" ")).join("\n")')
+          while read -r path id; do
+            test "$(git rev-parse "HEAD:upstream/$path")" = "$id" ||
+              { echo "upstream/$path differs from its object in upstream/UPSTREAM.json. Run node scripts/sync-upstream.mjs."; exit 1; }
+          done <<< "$objects"
