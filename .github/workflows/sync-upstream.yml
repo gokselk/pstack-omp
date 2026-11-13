@@ -19,6 +19,8 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    # A sync takes under a minute. Without a limit, a hung fetch holds the runner for GitHub's default 6 hours.
+    timeout-minutes: 10
     steps:
       # The commit the run was queued on can be stale by the time it runs; sync from the branch tip.
       - uses: actions/checkout@v4
