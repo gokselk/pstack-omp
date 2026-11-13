@@ -4,11 +4,13 @@
 
 [The omp adapter](adapter/omp.md) maps each Cursor name in pstack to omp: `Task` to `task`, `AskQuestion` to `ask`, Cursor model slugs to `provider/model-id:effort` selectors, `~/.cursor/...` paths to `~/.omp/...`, and so on. It ships as the hidden skill `pstack-omp-adapter`.
 
-The skills and agents are upstream's apart from three generated changes:
+The tree also ships `deslop`, `control-cli`, and `control-ui` from cursor-team-kit, Cursor's own plugin in cursor/plugins. pstack's playbooks run `deslop` before every commit and a control skill when shipping a CLI or UI, and omp users have no cursor-team-kit. The three are MIT with Cursor's copyright, not pstack's, so each skill folder carries cursor-team-kit's `LICENSE`. They use no Cursor name today, so their `SKILL.md` ships byte for byte. An adapter row tells the pstack skills that name cursor-team-kit that the three are already installed.
+
+The skills and agents are upstream's, cursor-team-kit's included, apart from three generated changes:
 
 - Each skill or agent that uses Cursor names gets, under its H1, the adapter rows for the names it uses. The rows sit in the skill because models rarely open a separate adapter file.
 - The paths in the adapter's "Rewritten paths" table are swapped in the text. Today those are `.cursor/skills/` and `~/.cursor/skills/`.
-- A relative link to a pstack file the tree leaves out, such as `docs/harness/claude-code.md`, points at that file on cursor/plugins `main` instead.
+- A relative link to an upstream file the tree leaves out, such as `docs/harness/claude-code.md`, points at that file on cursor/plugins `main` instead. A link resolves against the upstream folder its file came from, `pstack/` or `cursor-team-kit/`.
 
 ### rows first, and a rewrite only where a row loses
 
@@ -25,7 +27,7 @@ Measured with `omp -p` on Sonnet 5, as passes out of runs:
 
 On Opus 5.5 the same tree passed 2 of 2 delegation runs and 2 of 2 full `reflect` runs. Rewriting tool and field names in the text (`` `Task` `` to `` `task` ``, `subagent_type` to `agent`) was also tried and changed nothing: 0 of 3 delegation runs set `agent`, the same as without it.
 
-The tree has no Agent Plugins `$schema` in its manifest. With it, omp validates every `SKILL.md` against the closed Agent Skills field set (`name`, `description`, `license`, `allowed-tools`, `metadata`, `compatibility`), so upstream's `disable-model-invocation: true` rejects 57 of the 58 skills. None of those six fields hides a skill. Without `$schema`, omp loads the tree through its Claude-compatible provider: all 58 skills load, and the 57 user-invoked ones stay out of the model's catalog while `/skill:<name>` and `skill://<name>` still reach them. The manifest sits at `.omp-plugin/plugin.json`, so omp also reads any agent `model:` as an omp selector.
+The tree has no Agent Plugins `$schema` in its manifest. With it, omp validates every `SKILL.md` against the closed Agent Skills field set (`name`, `description`, `license`, `allowed-tools`, `metadata`, `compatibility`), so upstream's `disable-model-invocation: true` rejects 57 of the 61 skills. None of those six fields hides a skill. Without `$schema`, omp loads the tree through its Claude-compatible provider: all 61 skills load, and the 57 user-invoked ones stay out of the model's catalog while `/skill:<name>` and `skill://<name>` still reach them. The manifest sits at `.omp-plugin/plugin.json`, so omp also reads any agent `model:` as an omp selector.
 
 Per-role models need `task.perCallModel: on` and each model named by a `modelRoles` entry in user settings. `/skill:setup-pstack` offers that block and writes it after the user confirms. Without it, subagents run on their configured model.
 
@@ -37,7 +39,9 @@ Per-role models need `task.perCallModel: on` and each model named by a `modelRol
 
 | path | what |
 | --- | --- |
-| `upstream/pstack/` | `pstack/` from cursor/plugins, unedited. `upstream/UPSTREAM.json` records the commit. |
+| `upstream/pstack/` | `pstack/` from cursor/plugins, unedited. |
+| `upstream/cursor-team-kit/` | `LICENSE` and the `deslop`, `control-cli`, and `control-ui` skills from cursor/plugins `cursor-team-kit/`, unedited. |
+| `upstream/UPSTREAM.json` | the cursor/plugins commit, and the git object id of each vendored path. |
 | `adapter/omp.md` | the omp adapter, shipped as `skills/pstack-omp-adapter/SKILL.md`. Edit this one. |
 | `plugins/pstack/` | the generated plugin that omp installs. Do not edit it by hand. |
 | `.omp-plugin/marketplace.json` | the generated catalog. |
@@ -58,7 +62,7 @@ omp runs on Windows, and the plugin is built to work there. None of this has bee
 
 ## sync with upstream
 
-`.github/workflows/sync-upstream.yml` runs daily at 06:17 UTC, and on demand from the Actions tab with an optional cursor/plugins ref. It syncs `upstream/pstack`, regenerates the tree, and pushes a commit to `main` when anything changed. A sync is a no-op while upstream's `pstack/` git tree matches `tree` in `upstream/UPSTREAM.json`, so commits elsewhere in cursor/plugins do not churn the repo. The workflow requests `contents: write` for the push; branch protection on `main`, or an organization policy that caps workflow tokens at read-only, blocks it. GitHub disables a scheduled workflow after 60 days without repository activity, and the sync only commits when upstream's `pstack/` changes, so a quiet upstream can switch it off. Re-enable it from the Actions tab.
+`.github/workflows/sync-upstream.yml` runs daily at 06:17 UTC, and on demand from the Actions tab with an optional cursor/plugins ref. It syncs `upstream/`, regenerates the tree, and pushes a commit to `main` when anything changed. `VENDORED` in `scripts/sync-upstream.mjs` lists the cursor/plugins paths that `upstream/` mirrors, path for path. `upstream/UPSTREAM.json` records the repository, the ref, the commit and its date, and under `objects` the git object id of each listed path, a tree for a folder and a blob for a file. A sync compares those ids and is a no-op while every one matches, so commits elsewhere in cursor/plugins do not churn the repo. Otherwise it replaces everything in `upstream/` except `UPSTREAM.json`, so a path dropped from `VENDORED` goes away. To vendor another cursor-team-kit skill, add its folder to `VENDORED` and run the sync. The generator picks up every skill in `upstream/cursor-team-kit/skills/`. The workflow requests `contents: write` for the push; branch protection on `main`, or an organization policy that caps workflow tokens at read-only, blocks it. GitHub disables a scheduled workflow after 60 days without repository activity, and the sync only commits when a vendored path changes, so a quiet upstream can switch it off. Re-enable it from the Actions tab.
 
 By hand:
 
@@ -67,13 +71,15 @@ node scripts/sync-upstream.mjs        # or a branch, a tag, or a full 40-charact
 node scripts/generate-omp-tree.mjs
 ```
 
-The generator fails, and the scheduled run fails without pushing, when:
+The sync or the generator fails, and the scheduled run fails without pushing, when:
 
+- a path in `VENDORED` is gone upstream. The sync names it. Drop it from `VENDORED`, or vendor what replaced it.
 - upstream changes `docs/harness/claude-code.md`. Upstream adds a row there for each Cursor name its skills start using, and the matching `TERMS` entry lives in a script the sync does not fetch. Port the change to `adapter/omp.md` and `TERMS`, then update `CLAUDE_ADAPTER_SHA256` in the generator.
 - a skill uses a Cursor name in `TERMS` that `adapter/omp.md` has no row or section for.
-- `setup-pstack`, `poteto-mode`, or `poteto-help` is gone. The adapter and the README point at them.
+- `setup-pstack`, `poteto-mode`, `poteto-help`, `deslop`, `control-cli`, or `control-ui` is gone. The adapter and the README point at them.
+- a skill in `upstream/cursor-team-kit/skills/` has the name of one in `upstream/pstack/skills/`. The tree has one `skills/<name>/` folder for both.
 - upstream adds a skill named `pstack-omp-adapter`.
 - a row of the adapter's "Rewritten paths" table matches nothing upstream. Delete the row.
 - a skill's `name` differs from its folder, a relative link leaves the tree, a file name is one Windows cannot check out, or upstream's version is not `MAJOR.MINOR.PATCH`.
 
-GitHub emails you about the failed run. Fix the cause, regenerate, and commit. CI runs `node scripts/generate-omp-tree.mjs --check` and fails while the tree is out of date or while `upstream/pstack` differs from the tree recorded in `upstream/UPSTREAM.json`.
+GitHub emails you about the failed run. Fix the cause, regenerate, and commit. CI runs `node scripts/generate-omp-tree.mjs --check` and fails while the tree is out of date or while a path in `upstream/` differs from its object id in `upstream/UPSTREAM.json`.

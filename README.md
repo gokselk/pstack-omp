@@ -29,4 +29,4 @@ omp plugin upgrade pstack@pstack-omp
 
 ## license
 
-MIT, as upstream. See [LICENSE](LICENSE). Maintainers: see [MAINTAINING.md](MAINTAINING.md).
+MIT, as upstream. See [LICENSE](LICENSE). The plugin also bundles `deslop`, `control-cli`, and `control-ui` from Cursor's [cursor-team-kit](https://github.com/cursor/plugins/tree/main/cursor-team-kit), because pstack's playbooks run them. They are MIT, copyright Cursor, and each one's `LICENSE` sits beside its `SKILL.md`. Maintainers: see [MAINTAINING.md](MAINTAINING.md).
