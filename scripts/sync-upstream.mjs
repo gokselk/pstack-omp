@@ -21,6 +21,7 @@ const VENDORED = [
   "cursor-team-kit/skills/control-cli",
   "cursor-team-kit/skills/control-ui",
   "cursor-team-kit/skills/deslop",
+  "cursor-team-kit/skills/verify-this",
 ];
 const ref = process.argv[2] ?? "main";
 if (ref.startsWith("-")) throw new Error(`ref ${JSON.stringify(ref)} looks like a git option`);

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // Generates the omp plugin tree (plugins/pstack), the omp marketplace catalog, and release.json from upstream/pstack
-// and the cursor-team-kit skills that pstack's playbooks run.
+// and the four cursor-team-kit skills that pstack's playbooks run or name: deslop, control-cli, control-ui, verify-this.
 // Ported from cursor/plugins scripts/generate-pstack-harness-trees.mjs (the Claude Code tree).
 // Usage: node scripts/generate-omp-tree.mjs [--check]
 //
@@ -17,8 +17,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const UPSTREAM = join(ROOT, "upstream");
 const PSTACK = join(UPSTREAM, "pstack");
-// pstack's playbooks run deslop, control-cli, and control-ui from Cursor's cursor-team-kit plugin, which omp lacks, so
-// the tree ships them beside pstack's own skills.
+// pstack's playbooks run deslop, control-cli, and control-ui from Cursor's cursor-team-kit plugin, which omp lacks, and
+// control-ui names verify-this, which drives control-cli and control-ui. The tree ships all four beside pstack's own skills.
 const KIT = "cursor-team-kit";
 const SKILL_ROOTS = ["pstack", KIT];
 const AGENTS = join(PSTACK, "agents");
@@ -49,9 +49,9 @@ const GITHUB = "https://github.com/cursor/plugins";
 // TERMS entry lives in a script the sync does not fetch. A changed adapter is the signal to port both here.
 const CLAUDE_ADAPTER = "docs/harness/claude-code.md";
 const CLAUDE_ADAPTER_SHA256 = "c79e2283d3a83c6be3dd1cac33f9c074067c95e610ae6e0a16d9fdee84058927";
-// The adapter routes to setup-pstack, poteto-mode, deslop, control-cli, and control-ui, and the README names
-// poteto-help.
-const REQUIRED_SKILLS = ["setup-pstack", "poteto-mode", "poteto-help", "deslop", "control-cli", "control-ui"];
+// The adapter routes to setup-pstack, poteto-mode, deslop, control-cli, control-ui, and verify-this, and the README
+// names poteto-help.
+const REQUIRED_SKILLS = ["setup-pstack", "poteto-mode", "poteto-help", "deslop", "control-cli", "control-ui", "verify-this"];
 const LINK = /\]\(([^)\s]+)\)/g;
 
 // Every Cursor name a skill uses needs a row in the omp adapter. The keys are the upstream Claude Code generator's,
@@ -255,7 +255,7 @@ function has(files, from, path) {
 }
 
 // Agent Plugins 1.0.0 (`$schema`) makes omp validate SKILL.md frontmatter against the closed Agent Skills
-// field set, which rejects `disable-model-invocation` and `paths` and drops 57 of 61 skills. Without `$schema`,
+// field set, which rejects `disable-model-invocation` and `paths` and drops 57 of 62 skills. Without `$schema`,
 // omp loads the tree through its Claude-compatible provider, which keeps both fields and hides the user-invoked
 // skills from the model's catalog. `.omp-plugin/plugin.json` also marks the agents' `model:` as omp selectors.
 const { $schema: _schema, ...upstreamFields } = upstreamManifest;
