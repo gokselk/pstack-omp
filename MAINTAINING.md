@@ -29,9 +29,12 @@ Measured with `omp -p` on Sonnet 5, as passes out of runs:
 | check | before | now | what changed |
 | --- | --- | --- | --- |
 | a delegate's first `task` call carries `agent: "poteto-agent"` | 1/7 | 21/21 | The rows say to write `agent` as the first key of the item. Sonnet 5 wrote the long `task` text first and then left `agent` out. A higher thinking level did not help (1/4). |
+| a delegate's first `task` call carries the `model` the pstack rule names | 2/12 | 9/12 | The `Task` row says to write `agent` and `model` before `task`. Sonnet 5 named the model in its reasoning, then left `model` out of the call. The models row now also reaches `poteto-mode`, which names "the `/setup-pstack` rule". |
 | `reflect` names an omp folder, not `.cursor/skills/`, for a skill edit | 9/15 | 26/26 | The two paths are rewritten in the text. A reminder at the end of the skill did not help: 3 of its 6 runs still named `.cursor/skills/`. |
 | `reflect` finds its transcript without listing other workspaces' session folders | 19/30 | 16/16 | The row gives `$PI_SESSION_FILE` as the only way and forbids listing session folders. |
 | `reflect` sends no `model` while per-call models are off | | 36/38 | Unchanged. In the 2 misses omp rejected the call and the model sent it again without `model`. |
+
+The model rule stays `alwaysApply`. Read on demand through `rule://pstack-models` instead, it scored 8/12 against 9/12, and in 3 of 6 feature runs the model never read it. A sentence saying omp approves every effort of an approved model scored 9/12 against 8/12 without it, no measurable difference, so the adapter leaves it out. About a quarter of delegations still leave `model` out.
 
 On Opus 5.5 the same tree passed 2 of 2 delegation runs and 2 of 2 full `reflect` runs. Rewriting tool and field names in the text (`` `Task` `` to `` `task` ``, `subagent_type` to `agent`) was also tried and changed nothing: 0 of 3 delegation runs set `agent`, the same as without it.
 

@@ -96,7 +96,7 @@ const TERMS = [
   { key: "grok-", re: /\bgrok-\d/ },
   { key: "gpt-", re: /\bgpt-\d/ },
   { key: "inherit-parent", re: /inherit-parent/ },
-  { key: "pstack-models.mdc", re: /pstack-models\.mdc/ },
+  { key: "pstack-models.mdc", re: /pstack-models\.mdc|`\/setup-pstack` rule/ },
   { key: ".cursor/skills/", re: /\.cursor\/skills/ },
   { key: "~/.cursor/plugins/", re: /\.cursor\/plugins|\.cursor-plugin/ },
   { key: ".cursor/rules/", re: /\.cursor\/rules|always-applied rule/ },

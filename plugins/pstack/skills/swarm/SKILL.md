@@ -14,7 +14,7 @@ omp has no Cursor Automations, Bugbot, Cursor cloud agents, or built-in PR tool.
 
 | Cursor | omp |
 | --- | --- |
-| `Task` | `task`. With the batch schema, send `{ context, tasks: [{ agent, name, task, solutionSpace }] }`: `context` is shared background and each `task` is self-contained. When a skill names a subagent type, write `agent` as the first key of the item, before `task`. Written after a long `task`, it gets left out. |
+| `Task` | `task`. With the batch schema, send `{ context, tasks: [{ agent, model, name, task, solutionSpace }] }`: `context` is shared background and each `task` is self-contained. Write `agent` and `model` as the first keys of each item, before `task`, whenever the skill names a subagent type or a model. Written after a long `task`, they get left out. |
 | Open a todolist | `todo` with `op: "init"`, one phase per playbook stage. Send it beside your next real tool call. Subagents have no `todo`, so they keep the list in their reply. |
 | Run another pstack skill (`/name` or "the **name** skill") | `read skill://<name>` and follow it. When you tell the user to type it, write `/skill:<name>`. |
 | `subagent_type: generalPurpose` | Omit `agent`. The default `task` agent runs. |

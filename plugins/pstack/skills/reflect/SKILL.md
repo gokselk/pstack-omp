@@ -14,7 +14,7 @@ omp has no Cursor Automations, Bugbot, Cursor cloud agents, or built-in PR tool.
 
 | Cursor | omp |
 | --- | --- |
-| `Task` | `task`. With the batch schema, send `{ context, tasks: [{ agent, name, task, solutionSpace }] }`: `context` is shared background and each `task` is self-contained. When a skill names a subagent type, write `agent` as the first key of the item, before `task`. Written after a long `task`, it gets left out. |
+| `Task` | `task`. With the batch schema, send `{ context, tasks: [{ agent, model, name, task, solutionSpace }] }`: `context` is shared background and each `task` is self-contained. Write `agent` and `model` as the first keys of each item, before `task`, whenever the skill names a subagent type or a model. Written after a long `task`, they get left out. |
 | Run another pstack skill (`/name` or "the **name** skill") | `read skill://<name>` and follow it. When you tell the user to type it, write `/skill:<name>`. |
 | Cursor's built-in `create-skill` skill, `/create-skill` | `read skill://skill-creator` and follow it. pstack for omp ships Anthropic's skill-creator, adapted for omp. Its draft, test, and iterate loop runs test cases as `task` subagents, and its description optimization (`scripts/run_loop.py`) runs on `omp -p`. |
 | `subagent_type: generalPurpose` | Omit `agent`. The default `task` agent runs. |
