@@ -1,0 +1,5 @@
+# Check every file out byte for byte. With autocrlf, Windows would give the shell scripts in the plugin CRLF line
+# endings, which break them, and change upstream/pstack away from the tree recorded in upstream/UPSTREAM.json.
+* -text
+plugins/pstack/** linguist-generated=true
+upstream/** linguist-vendored=true
