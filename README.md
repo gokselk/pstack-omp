@@ -29,6 +29,12 @@ omp plugin marketplace update pstack-omp
 omp plugin upgrade pstack@pstack-omp
 ```
 
+The first command refreshes the catalog, and the second installs the newer version. To preview, run `omp plugin upgrade --dry-run` after the first command, because it compares against the catalog as last refreshed. Then start a new session, or run `/reload-plugins` in an open one. An open session keeps the old skills until then.
+
+If you use per-role models, run `/skill:setup-pstack` again after an upgrade. It changes only settings that differ, so a run with nothing new writes no settings.
+
+By default, omp does not upgrade plugins on its own. It checks for updates at startup and writes the result only to its debug log.
+
 ## license
 
 MIT, as upstream. See [LICENSE](LICENSE). The plugin also bundles `deslop`, `control-cli`, `control-ui`, and `verify-this` from Cursor's [cursor-team-kit](https://github.com/cursor/plugins/tree/main/cursor-team-kit), because pstack's playbooks run them: `control-ui` names `verify-this`, which drives `control-cli` and `control-ui` for before and after evidence. They are MIT, copyright Cursor, and each one's `LICENSE` sits beside its `SKILL.md`. It also ships `skill-creator`, adapted for omp from Anthropic's [skill-creator](https://github.com/anthropics/skills/tree/main/skills/skill-creator) (Apache-2.0, `LICENSE.txt` in its folder), which stands in for Cursor's `create-skill`. Maintainers: see [MAINTAINING.md](MAINTAINING.md).
