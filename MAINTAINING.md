@@ -33,7 +33,15 @@ Measured with `omp -p` on Sonnet 5, as passes out of runs:
 | `reflect` finds its transcript without listing other workspaces' session folders | 19/30 | 16/16 | The row gives `$PI_SESSION_FILE` as the only way and forbids listing session folders. |
 | `reflect` sends no `model` while per-call models are off | | 36/38 | Unchanged. In the 2 misses omp rejected the call and the model sent it again without `model`. |
 
-Each `TERMS` key picks the rows a skill carries, so a key matches the text of one row or names a section. Upstream's single keys for `readonly` and `environment` matched both values but carried only the `true` and `cloud` rows, so `swarm`, which names `environment: "local"`, lacked its row. Each value now has its own key. The `readonly` key also matches "readonly judge", so `arena` carries the `readonly: true` row.
+Each `TERMS` key picks the rows a skill carries, so a key matches the text of one row or names a section. Upstream's single keys for `readonly` and `environment` matched both values but carried only the `true` and `cloud` rows, so `swarm`, which names `environment: "local"`, lacked its row. Each value now has its own key. The `readonly` key also matches "readonly judge", so `arena` carries the `readonly: true` row. Measured with `omp -p` on Sonnet 5.5, 3 runs a check, before and after these rows went in:
+
+| check | before | after |
+| --- | --- | --- |
+| `poteto-help` gives omp's update commands | 0/3 | 3/3 |
+| `poteto-help` gives omp's `/loop --until` for a run until tests pass, instead of saying omp has no `/loop` | 0/3 | 3/3 |
+| `arena`'s judge runs without the `scout` agent | 2/3 | 3/3 |
+
+Without the install row, every run gave the install commands from the guide note but said it found no update command. Before, the arena judge ran as `scout` once and as `reviewer` twice. After, it ran with no `agent` and a read-only brief twice, and one run skipped the judge because every model in the pool was from the parent's vendor, which `arena` allows. Two `poteto-mode` feature runs on the new tree each spawned `poteto-agent` with the rule's model, and no `task` call was rejected. None of the 9 runs before the change opened `skill://pstack-omp-adapter`, so a row only reaches the model from inside the skill.
 
 The model rule stays `alwaysApply`. Read on demand through `rule://pstack-models` instead, it scored 8/12 against 9/12, and in 3 of 6 feature runs the model never read it. As a TTSR rule scoped to the `task` tool, it scored 10/12 against 8/12 on pstack tasks, but it also fired on plain delegations that use no pstack skill and put pstack's model on 5 of 6 of them, against 0 of 6 for the always-on rule. omp injects a TTSR rule as a rule violation, so the model applies it. A sentence saying omp approves every effort of an approved model scored 9/12 against 8/12 without it, no measurable difference, so the adapter leaves it out. With the always-on rule, 40 of 48 runs across four batches carried the rule's model, with 0 to 4 misses per batch of 12. In every miss whose reasoning was read, the model had named the rule's model and then left `model` out of the call. A run that lowers the rule's effort for a small job counts as a pass, because `poteto-mode` says to.
 
