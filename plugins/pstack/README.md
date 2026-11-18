@@ -1,5 +1,7 @@
 # pstack
 
+> **In omp.** Install pstack with `omp plugin marketplace add gokselk/pstack-omp` and `omp plugin install pstack@pstack-omp`. Update it with `omp plugin marketplace update pstack-omp` and `omp plugin upgrade pstack@pstack-omp`. Then type each command in these docs as `/skill:<name>`, such as `/skill:setup-pstack`. Steps that need a Cursor-only feature are skipped in omp. Those features are Custom Modes, cloud agents and Projects, and automations, including the benny pack. The `pstack-omp-adapter` skill maps the rest.
+
 i'm [poteto](https://x.com/poteto). i'm not a president or ceo, but i've worked with millions of lines of code at Meta, Netflix, and Cursor. i'm also on the react core team where i help build and maintain react compiler.
 
 there's a growing sense that ai writes too much slop code. i agree. i don't want to ship like a team of twenty slop artists. throughput without quality is not a goal i aspire to. if you want to go fast, go deep first. 

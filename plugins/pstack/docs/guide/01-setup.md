@@ -1,6 +1,6 @@
 # Set up pstack
 
-> **In omp.** Install pstack with `omp plugin marketplace add gokselk/pstack-omp` and `omp plugin install pstack@pstack-omp`. Then type each command in this guide as `/skill:<name>`, such as `/skill:setup-pstack`. Steps that need a Cursor-only feature are skipped in omp. Those features are Custom Modes, cloud agents and Projects, and automations, including the benny pack. The `pstack-omp-adapter` skill maps the rest.
+> **In omp.** Install pstack with `omp plugin marketplace add gokselk/pstack-omp` and `omp plugin install pstack@pstack-omp`. Update it with `omp plugin marketplace update pstack-omp` and `omp plugin upgrade pstack@pstack-omp`. Then type each command in these docs as `/skill:<name>`, such as `/skill:setup-pstack`. Steps that need a Cursor-only feature are skipped in omp. Those features are Custom Modes, cloud agents and Projects, and automations, including the benny pack. The `pstack-omp-adapter` skill maps the rest.
 
 In this page you install the plugin, pick which models pstack uses, and run your first task. Setup is one command plus a short conversation.
 

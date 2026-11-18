@@ -41,10 +41,10 @@ const ADAPTER_FRONTMATTER = [
   "",
 ].join("\n");
 const GUIDE = "docs/guide";
-// The guide is written for Cursor. The note under the H1 of its front page and its setup page gives omp's install
-// commands and command form, and names the Cursor-only steps omp skips.
+// The README and the guide are written for Cursor. The note under the H1 of the README, the guide's front page, and
+// its setup page gives omp's install commands and command form, and names the Cursor-only steps omp skips.
 const GUIDE_NOTE = "guide-note.md";
-const GUIDE_NOTE_PAGES = [`${GUIDE}/README.md`, `${GUIDE}/01-setup.md`];
+const GUIDE_NOTE_PAGES = ["README.md", `${GUIDE}/README.md`, `${GUIDE}/01-setup.md`];
 const TREE = "plugins/pstack";
 const OUT = join(ROOT, TREE);
 const MARKETPLACE = ".omp-plugin/marketplace.json";
@@ -79,8 +79,8 @@ const LINK = /\]\(([^)\s]+)\)/g;
 // Every Cursor name a skill uses needs a row in the omp adapter, and its key picks the rows a skill carries, so each
 // key is the text of one row or a section heading. The keys are the upstream Claude Code generator's, with each value
 // of `readonly` and `environment` keyed apart and its grok- and gpt- keys folded into gemini-, plus cursor-team-kit,
-// whose skills pstack names and this tree ships, and Cursor's create-skill, /loop, and Custom Modes, which the Claude
-// Code tree leaves unmapped.
+// whose skills pstack names and this tree ships, and Cursor's create-skill, /loop, Custom Modes, Plan Mode, Projects,
+// and install commands, which the Claude Code tree leaves unmapped.
 const TERMS = [
   { key: "`Task`", re: /`Task`|\bTask (tool|subagent|call)/ },
   { key: "`AskQuestion`", re: /AskQuestion/ },
@@ -104,11 +104,13 @@ const TERMS = [
   { key: "~/.cursor/plugins/", re: /\.cursor\/plugins|\.cursor-plugin/ },
   { key: ".cursor/rules/", re: /\.cursor\/rules|always-applied rule/ },
   { key: "agent-transcripts", re: /agent-transcripts|\.cursor\/projects/ },
-  { key: "Cursor-only features", re: /Bugbot|Cursor [Aa]utomation|cursor\.(sh|com)\/automations|[Cc]loud [Aa]gent|built-in PR tool/ },
+  { key: "Cursor-only features", re: /Bugbot|Cursor [Aa]utomation|cursor\.(sh|com)\/automations|[Cc]loud [Aa]gent|built-in PR tool|Project workers?|Cursor Projects?/ },
   { key: "cursor-team-kit", re: /cursor-team-kit/ },
   { key: "create-skill", re: /create-skill/ },
   { key: "/loop", re: /`\/loop`|\/loop (until|\d)/ },
   { key: "Custom Mode", re: /Custom Modes?|custom modes?/ },
+  { key: "Plan Mode", re: /Plan Mode/ },
+  { key: "/add-plugin", re: /\/add-plugin|\/plugin install/ },
 ];
 const ROUTE_KEY = "Run another pstack skill";
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
