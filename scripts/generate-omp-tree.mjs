@@ -57,7 +57,7 @@ const GITHUB = "https://github.com/cursor/plugins";
 // Upstream adds a row to its Claude Code adapter for each Cursor name its skills start using, and the matching
 // TERMS entry lives in a script the sync does not fetch. A changed adapter is the signal to port both here.
 const CLAUDE_ADAPTER = "docs/harness/claude-code.md";
-const CLAUDE_ADAPTER_SHA256 = "c79e2283d3a83c6be3dd1cac33f9c074067c95e610ae6e0a16d9fdee84058927";
+const CLAUDE_ADAPTER_SHA256 = "5f859ef4fa39664b1ccdff521bcb15854f8805394191da509e68ce625b97cba6";
 // The adapter routes to setup-pstack, poteto-mode, deslop, control-cli, control-ui, verify-this, and skill-creator, and
 // the README names poteto-help.
 const REQUIRED_SKILLS = ["setup-pstack", "poteto-mode", "poteto-help", "deslop", "control-cli", "control-ui", "verify-this", "skill-creator"];
@@ -93,8 +93,7 @@ const TERMS = [
   { key: "`resume`", re: /`resume`/ },
   { key: "`file_attachments`", re: /file_attachments/ },
   { key: "claude-", re: /\bclaude-[a-z]+-\d/ },
-  { key: "grok-", re: /\bgrok-\d/ },
-  { key: "gpt-", re: /\bgpt-\d/ },
+  { key: "gemini-", re: /\bgemini-\d/ },
   { key: "inherit-parent", re: /inherit-parent/ },
   { key: "pstack-models.mdc", re: /pstack-models\.mdc|`\/setup-pstack` rule/ },
   { key: ".cursor/skills/", re: /\.cursor\/skills/ },
@@ -171,6 +170,11 @@ const hidden = (body) => {
   const match = body.match(/^---\n([\s\S]*?)\n---/);
   return !match || HIDDEN.test(match[1]) ? body : `---\n${match[1]}\ndisable-model-invocation: true${body.slice(match[0].length - 4)}`;
 };
+// Upstream pins agents to a Cursor slug such as `claude-opus-5-5-xhigh-fast`. omp reads an agent's `model:` as an omp
+// selector, resolves that slug to its Cursor provider, and runs the agent there or on the session model, depending on
+// the user's Cursor login. Without the line, an agent runs on the session model unless the call passes an approved
+// per-call `model`, as every other omp subagent does.
+const unpinned = (body) => body.replace(/^---\n[\s\S]*?\n---/, (frontmatter) => frontmatter.replace(/^model:.*\n/m, ""));
 const rewritten = new Set();
 function source(path) {
   return rewrites.reduce((body, [from, to]) => {
@@ -346,7 +350,8 @@ function render() {
       if (!isPrompt) return [key, file(path)];
       const body = source(path);
       const hide = root === KIT && /^skills\/[^/]+\/SKILL\.md$/.test(key);
-      return [key, { ...file(path), bytes: Buffer.from(hide ? hidden(body) : body) }];
+      const agent = /^agents\/[^/]+\.md$/.test(key);
+      return [key, { ...file(path), bytes: Buffer.from(hide ? hidden(body) : agent ? unpinned(body) : body) }];
     }),
   );
   files.set(ADAPTER, { bytes: Buffer.from(ADAPTER_FRONTMATTER + adapter), executable: false });

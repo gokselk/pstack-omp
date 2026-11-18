@@ -14,19 +14,19 @@ omp has no Cursor Automations, Bugbot, Cursor cloud agents, or built-in PR tool.
 
 | Cursor | omp |
 | --- | --- |
-| Open a todolist | `todo` with `op: "init"`, one phase per playbook stage. Send it beside your next real tool call. Subagents have no `todo`, so they keep the list in their reply. |
+| Open a todolist, or copy steps into the todolist tool | `todo` with `op: "init"`, one phase per playbook stage. Send it beside your next real tool call. Subagents have no `todo`, so they keep the list in their reply. |
 | Run another pstack skill (`/name` or "the **name** skill") | `read skill://<name>` and follow it. When you tell the user to type it, write `/skill:<name>`. |
 | The `deslop`, `control-cli`, `control-ui`, or `verify-this` skill from the `cursor-team-kit` plugin | pstack for omp ships all four, so there is nothing to install. `read skill://<name>` and follow it, as for a pstack skill. |
 | Cursor's built-in `create-skill` skill, `/create-skill` | `read skill://skill-creator` and follow it. pstack for omp ships Anthropic's skill-creator, adapted for omp. Its draft, test, and iterate loop runs test cases as `task` subagents, and its description optimization (`scripts/run_loop.py`) runs on `omp -p`. |
-| `poteto-agent`, `comment-sicko`, `subagent_type: "poteto-agent"` | Set `agent: "poteto-agent"` or `agent: "comment-sicko"` as the first key of each task item. The plugin ships both without a prefix. An item without `agent` runs the generic `task` agent, which never loads poteto-mode. |
-| `auto` or `inherit-parent` | Omit `model`. |
-| The `pstack-models.mdc` rule, `~/.cursor/rules/pstack-models.mdc` | `~/.omp/agent/rules/pstack-models.md`. It is an always-applied rule, so its role lines are already in your system prompt. If they are not, read the file. Pass a role's value `<provider>/<model-id>:<effort>` as `model` on each item, unchanged. If the file or the role's line is missing, use the skill's default slug. omp also loads `~/.cursor/rules/*.mdc`, so map any Cursor slug you find there with the rows above. |
+| `poteto-agent`, `comment-sicko`, `subagent_type: "poteto-agent"` | Set `agent: "poteto-agent"` or `agent: "comment-sicko"` on each task item. The plugin ships both without a prefix. An item without `agent` runs the generic `task` agent, which never loads poteto-mode. |
+| `auto` or `inherit-parent` | Omit `model`. pstack for omp ships `poteto-agent` without a model of its own, so it runs on the session model too. |
+| The `pstack-models.mdc` rule, `~/.cursor/rules/pstack-models.mdc` | `~/.omp/agent/rules/pstack-models.md`. It is an always-applied rule, so its role lines are already in your system prompt. If they are not, read the file. Its role values are `<provider>/<model-id>:<effort>` selectors. If the file or the role's line is missing, use the skill's default slug. omp also loads `~/.cursor/rules/*.mdc`, so map any Cursor slug you find there with the rows above. |
 | `.cursor/rules/*.mdc`, always-applied rules | `AGENTS.md`, or a `.omp/rules/<name>.md` rule with `alwaysApply: true`. User-wide rules go in `~/.omp/agent/rules/`. The model rule is the exception. See Models. |
 | Cursor Automations: routines, `update_state` routine calls, `api2.cursor.sh/automations` webhooks, routine wakes, and `SendToUser` secret requests | Skip with the line. |
 | Bugbot | Bugbot comments on a GitHub PR are ordinary review threads, so triage them with the forge command that the step gives. Skip a step that starts, waits for, or configures Bugbot when the PR has no Bugbot check or comment. |
 | Cursor cloud agents | `environment: "cloud"` maps to an isolated checkout, as in Subagent fields. Skip a step that needs the cloud agent itself, such as its dashboard status or its own machine. |
 | A built-in PR tool | Use the forge command that the step gives, such as `gh pr create`. `read pr://<n>` shows a GitHub PR and `pr://<n>/diff` its diff. That is not a skip, so write no line. |
-| Cursor's `/loop` command, such as `/loop until X` or `/loop 1h` | omp has no `/loop` and no recurring timer. To wake on an event (CI, a merge, a ref moving), run the watcher as a background `bash` job or a `task` subagent. Its result wakes the session when it finishes. Start it through the tool, not with `nohup`, `disown`, or a trailing `&`: a detached process cannot wake you and outlives the session. Always give it a time limit, such as a capped number of checks, so it ends even when the event never comes. Never write `while true`. For a fixed tick such as `/loop 1h`, write the skip line once, then run the tick's audit at each phase boundary and each time a result wakes you. In a plan file, keep the literal `/loop 1h` line, because `check-plan.mjs` requires it. |
+| Cursor's `/loop` command, such as `/loop until X` or `/loop 1h` | omp has no `/loop` and no recurring timer. To wake on an event (CI, a merge, a ref moving), run the watcher as a background `bash` job or a `task` subagent. Its result wakes the session when it finishes. Start it through the tool, not with `nohup`, `disown`, or a trailing `&`: a detached process cannot wake you and outlives the session. Always give it a time limit, such as a capped number of checks, so it ends even when the event never comes. Never write `while true`. For a fixed tick such as `/loop 1h`, write the skip line once, then run the tick's audit at each phase boundary and each time a result wakes you. |
 | Cursor Custom Modes, such as keeping `/poteto-mode` on with Option+Enter or the Agents Window | omp has no Custom Modes. Start each task with `/skill:poteto-mode`, or under `omp -p` with `read skill://poteto-mode and follow it`. |
 
 Answer the user's question about pstack, hand them a prompt they can send, and link the file the answer came from. For a help question, don't start the work. The user asked how, and a pstack run spends real tokens, so let them send the prompt.
@@ -68,11 +68,11 @@ If cost is the worry, say where the tokens go and how to spend fewer. pstack spe
 
 pstack is built for Cursor, and it also installs in Claude Code with `/plugin marketplace add cursor/plugins`, then `/plugin install pstack@cursor-plugins`. There, each command takes a `pstack:` prefix, such as `/pstack:poteto-mode`. The [Claude Code adapter](https://github.com/cursor/plugins/blob/main/pstack/docs/harness/claude-code.md) maps the Cursor names, and a step that needs a Cursor-only feature, such as Bugbot or Automations, is skipped with a one-line note.
 
-Other tools can read the skills, because they use the Agent Skills format. But most workflow skills, including `/poteto-mode`, `/how`, `/why`, and `/teach`, spawn Cursor subagents with per-role models, and Custom Modes and `/loop` are Cursor features, so those parts may not work there.
+Other tools can read the skills, because they use the Agent Skills format. But most workflow skills, including `/poteto-mode`, `/how`, and `/teach`, spawn Cursor subagents, some with per-role models, and Custom Modes and `/loop` are Cursor features, so those parts may not work there.
 
 ## Start a task with `/poteto-mode`
 
-`/poteto-mode` matches the task to a playbook, copies the playbook's steps into the todo list, and runs the other skills as the steps need them. A step it skips stays in the list as `skip: <reason>`. A good prompt states the goal and how to tell it's done. It doesn't list skills, because a hand-written sequence tends to drop or reorder steps the playbook would keep. Read [`references/prompting.md`](references/prompting.md) before you help word one. [Guide page 2](../../docs/guide/02-poteto-mode.md) has examples.
+`/poteto-mode` matches the task to a playbook, copies the playbook's steps into the todo list, and runs the other skills as the steps need them. A good prompt states the goal and how to tell it's done. It doesn't list skills, because a hand-written sequence tends to drop or reorder steps the playbook would keep. Read [`references/prompting.md`](references/prompting.md) before you help word one. [Guide page 2](../../docs/guide/02-poteto-mode.md) has examples.
 
 Whether `/poteto-mode` stays on depends on how the user starts it:
 
@@ -129,16 +129,15 @@ Close calls:
 
 - `/how` explains what the code does. `/why` explains the reasons. `/teach` runs one or both and explains the result plainly.
 - `/arena` gives every worker the same brief and merges the best parts. `/swarm` splits work into slices or a race and returns one report.
-- `/architect` implements right after it settles the design. Add "with checkpoint" to review the design before it writes code.
 - `/interrogate` reviews the diff. `/blast-radius` looks for breakage outside the diff and proves the one fact that makes the change safe.
 - `/recall` rebuilds context across recent chats. `/ketchup` covers only this chat since the user's last message. Resuming one specific chat or branch is the Session pickup playbook.
-- `/figure-it-out` designs one rigorous run. The Orchestrate playbook runs a program that spans days and many PRs. The Autonomous run playbook drives one task to a finish condition.
+- `/figure-it-out` designs one rigorous run. The Autonomous run playbook drives one task to a finish condition.
 
 Not in pstack:
 
 - `/deslop`, `control-cli`, and `control-ui` ship in the `cursor-team-kit` plugin.
 - `/loop` and `/create-skill` are Cursor built-ins.
-- pstack has no `/orchestrate` skill. Orchestrate is a `/poteto-mode` playbook. If the slash menu shows `/orchestrate`, another plugin provides it.
+- pstack has no `/orchestrate` skill. If the slash menu shows `/orchestrate`, another plugin provides it.
 
 ## Playbooks and principles
 
@@ -151,7 +150,7 @@ Playbooks are step lists inside `/poteto-mode`, not skills, so they have no slas
 - "full autopilot on this queue" runs Autopilot-full. "autopilot, don't merge" runs Autopilot-stack.
 - "run the eval playbook" runs Eval.
 
-Without `/poteto-mode`, a phrase such as "babysit this pr" can start Cursor's own skill for the same job instead. The Playbooks section of [`poteto-mode`](../poteto-mode/SKILL.md) lists every playbook and when it applies. [Guide page 6](../../docs/guide/06-verify-and-ship.md) covers opening, babysitting, and landing a PR.
+Without `/poteto-mode`, a phrase such as "babysit this pr" can start Cursor's own skill for the same job instead. The Playbooks section of [`poteto-mode`](../poteto-mode/SKILL.md) lists every playbook. [Guide page 6](../../docs/guide/06-verify-and-ship.md) covers opening, babysitting, and landing a PR.
 
 pstack has no planning skill. Cursor's Plan Mode works alongside it. For work that spans phases or stacked PRs, asking `/poteto-mode` for a plan runs the [Multi-phase plan playbook](../poteto-mode/playbooks/multi-phase-plan.md), which writes the plan and doesn't implement it. For a design question, the Prototype playbook or `/architect` settles it in code first.
 
