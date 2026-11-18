@@ -76,9 +76,11 @@ const OVERLAYS = {
 };
 const LINK = /\]\(([^)\s]+)\)/g;
 
-// Every Cursor name a skill uses needs a row in the omp adapter. The keys are the upstream Claude Code generator's,
-// plus cursor-team-kit, whose skills pstack names and this tree ships, and Cursor's create-skill, /loop, and Custom
-// Modes, which the Claude Code tree leaves unmapped.
+// Every Cursor name a skill uses needs a row in the omp adapter, and its key picks the rows a skill carries, so each
+// key is the text of one row or a section heading. The keys are the upstream Claude Code generator's, with each value
+// of `readonly` and `environment` keyed apart and its grok- and gpt- keys folded into gemini-, plus cursor-team-kit,
+// whose skills pstack names and this tree ships, and Cursor's create-skill, /loop, and Custom Modes, which the Claude
+// Code tree leaves unmapped.
 const TERMS = [
   { key: "`Task`", re: /`Task`|\bTask (tool|subagent|call)/ },
   { key: "`AskQuestion`", re: /AskQuestion/ },
@@ -86,14 +88,16 @@ const TERMS = [
   { key: "generalPurpose", re: /generalPurpose/ },
   { key: "poteto-agent", re: /poteto-agent/ },
   { key: "comment-sicko", re: /comment-sicko/ },
-  { key: "`readonly: true`", re: /readonly: (true|false)|readonly\/Ask/ },
-  { key: "`environment: \"cloud\"`", re: /environment: "(cloud|local)"/ },
+  { key: "`readonly: true`", re: /readonly: true|readonly\/Ask|\breadonly (judge|subagent|agent|reviewer)s?\b/ },
+  { key: "`readonly: false`", re: /readonly: false/ },
+  { key: "`environment: \"cloud\"`", re: /environment: "cloud"/ },
+  { key: "`environment: \"local\"`", re: /environment: "local"/ },
   { key: "cloud_base_branch", re: /cloud_base_branch/ },
   { key: "`run_in_background: true`", re: /run_in_background/ },
   { key: "`resume`", re: /`resume`/ },
   { key: "`file_attachments`", re: /file_attachments/ },
   { key: "claude-", re: /\bclaude-[a-z]+-\d/ },
-  { key: "gemini-", re: /\bgemini-\d/ },
+  { key: "gemini-", re: /\b(gemini|grok|gpt)-\d/ },
   { key: "inherit-parent", re: /inherit-parent/ },
   { key: "pstack-models.mdc", re: /pstack-models\.mdc|`\/setup-pstack` rule/ },
   { key: ".cursor/skills/", re: /\.cursor\/skills/ },

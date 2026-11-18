@@ -19,6 +19,7 @@ omp has no Cursor Automations, Bugbot, Cursor cloud agents, or built-in PR tool.
 | Run another pstack skill (`/name` or "the **name** skill") | `read skill://<name>` and follow it. When you tell the user to type it, write `/skill:<name>`. |
 | `subagent_type: generalPurpose` | Omit `agent`. The default `task` agent runs. |
 | `environment: "cloud"` | `isolated: true` when the `task` schema offers `isolated` (needs `task.isolation.enabled`). Name the branch or commit the worker checks out. Without it, make a checkout with `git worktree add`, or `ovnfs new` when the system prompt offers it, and give the worker its path. |
+| `environment: "local"` | Omit. |
 | `cloud_base_branch: <b>` | Tell the worker to check out `<b>` first. |
 | `run_in_background: true` | Omit. With async on, spawns already run in the background and their results arrive on their own. Call `wait` only when you are blocked with nothing else to do. |
 | A pstack file in a `Task` brief, such as a reference prompt or a playbook | Name it as `skill://<name>/<path>`, such as `skill://poteto-mode/playbooks/feature.md`. Subagents resolve it as you do; a relative or `plugins/pstack/...` path sends them searching the disk. When the brief has them follow a pstack skill or reference prompt, also tell them to read `skill://pstack-omp-adapter` first. |
