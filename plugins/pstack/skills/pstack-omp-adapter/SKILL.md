@@ -20,7 +20,6 @@ pstack skills use Cursor names. In omp, read this once per session, then map eac
 | Run another pstack skill (`/name` or "the **name** skill") | `read skill://<name>` and follow it. When you tell the user to type it, write `/skill:<name>`. |
 | The `deslop`, `control-cli`, `control-ui`, or `verify-this` skill from the `cursor-team-kit` plugin | pstack for omp ships all four, so there is nothing to install. `read skill://<name>` and follow it, as for a pstack skill. |
 | Cursor's built-in `create-skill` skill, `/create-skill` | `read skill://skill-creator` and follow it. pstack for omp ships Anthropic's skill-creator, adapted for omp. Its draft, test, and iterate loop runs test cases as `task` subagents, and its description optimization (`scripts/run_loop.py`) runs on `omp -p`. |
-| `Grep`, `Glob`, `Read` | `grep`, `glob`, `read`. |
 
 ## Subagent fields
 
