@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for omp by pstack-omp (2026): reads and writes UTF-8, which Python on Windows does not default to.
 """Generate an HTML report from run_loop.py output.
 
 Takes the JSON output from run_loop.py and generates a visual HTML report
@@ -311,12 +312,12 @@ def main():
     if args.input == "-":
         data = json.load(sys.stdin)
     else:
-        data = json.loads(Path(args.input).read_text())
+        data = json.loads(Path(args.input).read_text(encoding="utf-8"))
 
     html_output = generate_html(data, skill_name=args.skill_name)
 
     if args.output:
-        Path(args.output).write_text(html_output)
+        Path(args.output).write_text(html_output, encoding="utf-8")
         print(f"Report written to {args.output}", file=sys.stderr)
     else:
         print(html_output)

@@ -75,22 +75,24 @@ fi
 
 # omp keeps each chat at ~/.omp/agent/sessions/<encoded-cwd>/<timestamp>_<id>.jsonl,
 # where <encoded-cwd> encodes the canonical cwd the chat started in: -<path> under
-# $HOME, -tmp-<path> under the temp root, and --<absolute path>-- elsewhere, with
-# "/" and ":" turned into "-". A path that cannot be resolved stays as given.
+# the temp root, then under home, and --<absolute path>-- elsewhere, with "/", "\",
+# and ":" turned into "-" and a leading "/" dropped. A path that cannot be resolved
+# stays as given. On Windows, omp's shell gives scripts no $HOME, and the temp
+# root, as Node finds it, is $TEMP, which lies under home.
 canonical() { (cd "$1" 2>/dev/null && pwd -P) || printf '%s' "${1%/}"; }
-home=$(canonical "$HOME")
-tmp=$(canonical "${TMPDIR:-/tmp}")
-sessions="$HOME/.omp/agent/sessions"
+home_dir=${HOME:-$USERPROFILE}
+home=$(canonical "$home_dir")
+tmp=$(canonical "${TMPDIR:-${TMP:-${TEMP:-/tmp}}}")
+sessions="$home_dir/.omp/agent/sessions"
 session_dir() {
 	local cwd rel
 	cwd=$(canonical "$1")
 	case "$cwd" in
-	"$tmp"|"$tmp"/*) rel=-tmp${cwd#"$tmp"} ;;
-	"$home"|"$home"/*) rel=${cwd#"$home"}; rel=${rel:-/} ;;
-	*) rel=-$cwd-- ;;
+	"$tmp"|"$tmp"[/\\]*) rel=-tmp${cwd#"$tmp"} ;;
+	"$home"|"$home"[/\\]*) rel=${cwd#"$home"}; rel=${rel:-/} ;;
+	*) rel=--${cwd#/}-- ;;
 	esac
-	rel=${rel//\//-}
-	printf '%s/%s' "$sessions" "${rel//:/-}"
+	printf '%s/%s' "$sessions" "${rel//[\/\\:]/-}"
 }
 main_sessions=$(session_dir "$main_wt")
 now=$(date +%s)
@@ -132,15 +134,19 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 	# Most recent chat that operated in this worktree: any chat in its own
 	# bucket, since it started there, or a chat in the main repo's bucket that
 	# names the worktree. Other buckets hold other workspaces' private chats, so
-	# they are never searched. Match path followed by "/" or a quote so
+	# they are never searched. Match path followed by "/", "\", or a quote so
 	# glint-482 does not match glint-482-r37. A chat names the path as it was
-	# typed, and macOS's /tmp is /private/tmp, so match each spelling.
+	# typed, and macOS's /tmp is /private/tmp, so match each spelling. A chat is
+	# JSON, so a Windows path's "\" is "\\" there.
 	last="-"; last_ts=0
 	wt_real=$(canonical "$wt")
 	paths=()
-	for p in "$wt" "$wt_real" "${wt_real#/private}"; do paths+=(-e "$p/" -e "$p\""); done
+	for p in "$wt" "$wt_real" "${wt_real#/private}"; do
+		p=${p//\\/\\\\}
+		paths+=(-e "$p/" -e "$p\"" -e "$p\\\\")
+	done
 	own=$(session_dir "$wt")
-	f=$({ rg -l -0 -g '*.jsonl' "${paths[@]}" "$main_sessions"; rg --files -0 -g '*.jsonl' "$own"; } 2>/dev/null \
+	f=$({ rg -F -l -0 -g '*.jsonl' "${paths[@]}" "$main_sessions"; rg --files -0 -g '*.jsonl' "$own"; } 2>/dev/null \
 		| xargs -0 stat "${stat_fmt[@]}" 2>/dev/null | sort -rn | head -1)
 	if [ -n "$f" ]; then last_ts=$(echo "$f" | awk '{print $1}')
 		last=$(fmt_day "$last_ts" 2>/dev/null); fi

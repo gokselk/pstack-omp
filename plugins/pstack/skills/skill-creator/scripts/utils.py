@@ -1,3 +1,4 @@
+# Modified for omp by pstack-omp (2026): reads and writes UTF-8, which Python on Windows does not default to.
 """Shared utilities for skill-creator scripts."""
 
 from pathlib import Path
@@ -6,7 +7,7 @@ from pathlib import Path
 
 def parse_skill_md(skill_path: Path) -> tuple[str, str, str]:
     """Parse a SKILL.md file, returning (name, description, full_content)."""
-    content = (skill_path / "SKILL.md").read_text()
+    content = (skill_path / "SKILL.md").read_text(encoding="utf-8")
     lines = content.split("\n")
 
     if lines[0].strip() != "---":

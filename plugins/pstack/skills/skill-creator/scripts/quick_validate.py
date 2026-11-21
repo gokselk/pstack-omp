@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Modified for omp by pstack-omp (2026): reads and writes UTF-8, which Python on Windows does not default to.
 """
 Quick validation script for skills - minimal version
 """
@@ -19,7 +20,7 @@ def validate_skill(skill_path):
         return False, "SKILL.md not found"
 
     # Read and validate frontmatter
-    content = skill_md.read_text()
+    content = skill_md.read_text(encoding="utf-8")
     if not content.startswith('---'):
         return False, "No YAML frontmatter found"
 

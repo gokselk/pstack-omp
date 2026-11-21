@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Modified for omp by pstack-omp (2026): runs the queries through `omp -p` against a temporary project skill in .omp/skills/.
+# Modified for omp by pstack-omp (2026): runs the queries through `omp -p` against a temporary project skill in .omp/skills/,
+# reads its output on a thread instead of select(), which Windows supports only for sockets, and reads and writes UTF-8.
 """Run trigger evaluation for a skill description.
 
 Tests whether a skill's description causes Claude to trigger (read the skill)
@@ -8,11 +9,11 @@ for a set of queries. Outputs results as JSON.
 
 import argparse
 import json
-import os
-import select
+import queue
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -59,7 +60,7 @@ def temporary_skill(project_root: Path, skill_name: str, skill_description: str)
             f"# {skill_name}\n\n"
             f"This skill handles: {skill_description}\n"
         )
-        (skill_dir / "SKILL.md").write_text(skill_content)
+        (skill_dir / "SKILL.md").write_text(skill_content, encoding="utf-8")
         yield clean_name
     finally:
         shutil.rmtree(skill_dir, ignore_errors=True)
@@ -83,7 +84,7 @@ def run_single_query(
     def reads_skill(event: dict) -> bool:
         if event.get("type") != "tool_execution_start" or event.get("toolName") != "read":
             return False
-        path = (event.get("args") or {}).get("path", "")
+        path = (event.get("args") or {}).get("path", "").replace("\\", "/")
         return path.startswith(f"skill://{clean_name}") or f"/.omp/skills/{clean_name}/" in path
 
     cmd = ["omp", "-p", query, "--mode", "json", "--no-session"]
@@ -99,32 +100,33 @@ def run_single_query(
         cwd=project_root,
     )
 
-    start_time = time.time()
-    buffer = ""
+    # select() takes only sockets on Windows, so a thread hands the lines over.
+    lines: queue.Queue[bytes | None] = queue.Queue()
+
+    def pump() -> None:
+        for line in process.stdout:
+            lines.put(line)
+        lines.put(None)
+
+    threading.Thread(target=pump, daemon=True).start()
+    deadline = time.time() + timeout
 
     try:
-        while time.time() - start_time < timeout:
-            ready, _, _ = select.select([process.stdout], [], [], 1.0)
-            if not ready:
-                if process.poll() is not None:
-                    return False
-                continue
-
-            chunk = os.read(process.stdout.fileno(), 8192)
-            if not chunk:
+        while (remaining := deadline - time.time()) > 0:
+            try:
+                line = lines.get(timeout=remaining)
+            except queue.Empty:
+                break
+            if line is None:
                 return False
-            buffer += chunk.decode("utf-8", errors="replace")
-
-            while "\n" in buffer:
-                line, buffer = buffer.split("\n", 1)
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if reads_skill(event):
-                    return True
-                if event.get("type") in ("turn_end", "agent_end"):
-                    return False
+            try:
+                event = json.loads(line.decode("utf-8", errors="replace"))
+            except json.JSONDecodeError:
+                continue
+            if reads_skill(event):
+                return True
+            if event.get("type") in ("turn_end", "agent_end"):
+                return False
     finally:
         # Clean up process on any exit path (return, exception, timeout)
         if process.poll() is None:
@@ -226,7 +228,7 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Print progress to stderr")
     args = parser.parse_args()
 
-    eval_set = json.loads(Path(args.eval_set).read_text())
+    eval_set = json.loads(Path(args.eval_set).read_text(encoding="utf-8"))
     skill_path = Path(args.skill_path)
 
     if not (skill_path / "SKILL.md").exists():
