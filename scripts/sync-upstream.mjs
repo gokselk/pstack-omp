@@ -22,6 +22,8 @@ const VENDORED = [
   "cursor-team-kit/skills/control-ui",
   "cursor-team-kit/skills/deslop",
   "cursor-team-kit/skills/verify-this",
+  // Its TERMS list keys the Cursor names pstack's skills use; the generator pins it.
+  "scripts/generate-pstack-harness-trees.mjs",
 ];
 const ref = process.argv[2] ?? "main";
 if (ref.startsWith("-")) throw new Error(`ref ${JSON.stringify(ref)} looks like a git option`);

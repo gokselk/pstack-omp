@@ -55,10 +55,13 @@ const FORK = "https://github.com/gokselk/pstack-omp";
 const RELEASE = "release.json";
 const COMMAND = "node scripts/generate-omp-tree.mjs";
 const GITHUB = "https://github.com/cursor/plugins";
-// Upstream adds a row to its Claude Code adapter for each Cursor name its skills start using, and the matching
-// TERMS entry lives in a script the sync does not fetch. A changed adapter is the signal to port both here.
-const CLAUDE_ADAPTER = "docs/harness/claude-code.md";
-const CLAUDE_ADAPTER_SHA256 = "5f859ef4fa39664b1ccdff521bcb15854f8805394191da509e68ce625b97cba6";
+// Upstream's Claude Code generator keys each Cursor name its skills use in its TERMS list, so a changed list is the
+// signal to port the new names to adapter/omp.md and TERMS here. The sync vendors that script for this. Upstream's
+// Claude Code adapter itself changes with every new default model, which adapter/omp.md does not mirror row for row.
+const UPSTREAM_GENERATOR = join(UPSTREAM, "scripts/generate-pstack-harness-trees.mjs");
+const UPSTREAM_TERMS_SHA256 = "a11c0e10a32674256565dcbc0f2d477920e70fcd43dcd636991b776c5fc66f2f";
+// setup-pstack's rule block, whose role lines hold the default slugs. The adapter maps each one by name.
+const DEFAULT_RULE = /^# budget:.*\n((?:[a-z][a-z ,-]*: .+\n)+)/m;
 // The adapter routes to setup-pstack, poteto-mode, deslop, control-cli, control-ui, verify-this, and skill-creator, and
 // the README names poteto-help.
 const REQUIRED_SKILLS = ["setup-pstack", "poteto-mode", "poteto-help", "deslop", "control-cli", "control-ui", "verify-this", "skill-creator"];
@@ -289,11 +292,28 @@ for (const skill of REQUIRED_SKILLS) {
 for (const name of Object.keys(DROPPED_SKILLS)) {
   if (!upstreamSkillNames.has(name)) problems.push(`${name} is gone upstream. Delete it from DROPPED_SKILLS`);
 }
-const claudeAdapter = sha256(join(PSTACK, CLAUDE_ADAPTER));
-if (claudeAdapter !== CLAUDE_ADAPTER_SHA256) {
+const upstreamTerms = existsSync(UPSTREAM_GENERATOR)
+  ? readFileSync(UPSTREAM_GENERATOR, "utf8").match(/^const TERMS = \[\n[\s\S]*?^\];$/m)?.[0]
+  : undefined;
+const upstreamTermsHash = upstreamTerms && createHash("sha256").update(upstreamTerms).digest("hex");
+if (upstreamTerms === undefined) {
+  problems.push(`upstream/${relative(UPSTREAM, UPSTREAM_GENERATOR)} has no TERMS list. Find where upstream now keys its Cursor names`);
+} else if (upstreamTermsHash !== UPSTREAM_TERMS_SHA256) {
   problems.push(
-    `upstream changed ${CLAUDE_ADAPTER} (sha256 ${claudeAdapter}). Port its new Cursor names to adapter/omp.md and TERMS, then update CLAUDE_ADAPTER_SHA256`,
+    `upstream changed TERMS in upstream/${relative(UPSTREAM, UPSTREAM_GENERATOR)} (sha256 ${upstreamTermsHash}). Port its new Cursor names to adapter/omp.md and TERMS, then update UPSTREAM_TERMS_SHA256`,
   );
+}
+const defaultRule = readFileSync(join(PSTACK, "skills/setup-pstack/SKILL.md"), "utf8").match(DEFAULT_RULE)?.[1];
+if (defaultRule === undefined) problems.push("skills/setup-pstack/SKILL.md has no `# budget:` line followed by role lines");
+const defaultSlugs = new Set(
+  (defaultRule ?? "")
+    .split("\n")
+    .flatMap((line) => line.slice(line.indexOf(": ") + 2).split(","))
+    .map((slug) => slug.trim())
+    .filter((slug) => slug && slug !== "inherit-parent" && slug !== "auto"),
+);
+for (const slug of defaultSlugs) {
+  if (!adapter.includes(`\`${slug}\``)) problems.push(`setup-pstack defaults to ${slug}, which adapter/omp.md does not map. Add it to the setup-pstack Defaults line`);
 }
 for (const page of GUIDE_NOTE_PAGES) {
   const path = join(PSTACK, page);
