@@ -79,6 +79,26 @@ try {
     for (const path of VENDORED) {
       cpSync(join(tmp, path), join(UPSTREAM, path), { recursive: true, verbatimSymlinks: true });
     }
+    // A Windows file system drops the executable bit, so carry upstream's modes into the index, where git keeps them
+    // there. An untracked file gets mode 100644 from `git add`, and a tracked one keeps its index mode.
+    if (process.platform === "win32") {
+      const modes = (cwd, ...args) =>
+        new Map(
+          git(cwd, ...args)
+            .split("\0")
+            .filter(Boolean)
+            .map((line) => [line.slice(line.indexOf("\t") + 1), line.startsWith("100755 ")]),
+        );
+      const wanted = modes(tmp, "ls-tree", "-r", "-z", "HEAD", "--", ...VENDORED);
+      const indexed = modes(ROOT, "ls-files", "--stage", "-z", "--", "upstream");
+      for (const [flag, want] of [["+x", true], ["-x", false]]) {
+        const paths = [...wanted]
+          .filter(([path, executable]) => executable === want && (indexed.get(`upstream/${path}`) ?? false) !== want)
+          .map(([path]) => `upstream/${path}`);
+        // -f: upstream's own .gitignore must not keep a vendored file out.
+        if (paths.length > 0) git(ROOT, "add", "-f", `--chmod=${flag}`, "--", ...paths);
+      }
+    }
     writeFileSync(
       RECORD,
       `${JSON.stringify({ repository: "https://github.com/cursor/plugins", ref, commit, date, objects }, null, 2)}\n`,

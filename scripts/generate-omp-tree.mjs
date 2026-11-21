@@ -10,9 +10,10 @@
 // by one whenever the generated content changes without it, so `omp plugin upgrade` sees every change.
 // release.json records the version and a digest of the content it was cut from.
 
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, posix, relative } from "node:path";
+import { dirname, join, posix, relative as nativeRelative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -123,8 +124,24 @@ function walk(dir) {
   });
 }
 
+// Tree paths use `/` on every platform; Windows' `\` would miss every key and pin.
+const relative = (from, to) => nativeRelative(from, to).split(sep).join("/");
+
+// A Windows file system has no executable bit, so there a file's mode lives only in git's index. Stage a new
+// executable with `git add --chmod=+x`; the sync and the generator do so for what they write.
+const INDEX_MODES =
+  process.platform === "win32"
+    ? new Map(
+        execFileSync("git", ["ls-files", "--stage", "-z"], { cwd: ROOT, encoding: "utf8" })
+          .split("\0")
+          .filter(Boolean)
+          .map((line) => [line.slice(line.indexOf("\t") + 1), line.startsWith("100755 ")]),
+      )
+    : undefined;
+
 function file(path) {
-  return { bytes: readFileSync(path), executable: (statSync(path).mode & 0o111) !== 0 };
+  const executable = INDEX_MODES ? INDEX_MODES.get(relative(ROOT, path)) === true : (statSync(path).mode & 0o111) !== 0;
+  return { bytes: readFileSync(path), executable };
 }
 
 const text = (bytes) => Buffer.from(bytes).toString("utf8");
@@ -487,6 +504,15 @@ if (process.argv.includes("--check")) {
     mkdirSync(dirname(join(ROOT, path)), { recursive: true });
     writeFileSync(join(ROOT, path), bytes);
     chmodSync(join(ROOT, path), executable ? 0o755 : 0o644);
+  }
+  if (INDEX_MODES) {
+    // An untracked file gets mode 100644 from `git add`, and a tracked one keeps its index mode.
+    for (const [flag, want] of [["+x", true], ["-x", false]]) {
+      const paths = [...outputs]
+        .filter(([path, { executable }]) => executable === want && (INDEX_MODES.get(path) ?? false) !== want)
+        .map(([path]) => path);
+      if (paths.length > 0) execFileSync("git", ["add", `--chmod=${flag}`, "--", ...paths], { cwd: ROOT });
+    }
   }
   const wrapped = [...classes].filter(([, { wrap }]) => wrap);
   const count = (prefix) => wrapped.filter(([path]) => path.startsWith(prefix)).length;
