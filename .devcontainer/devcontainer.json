@@ -1,0 +1,5 @@
+{
+  // Linux, as CI runs the generator: ubuntu-latest with Node 22.
+  "name": "pstack-omp",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm"
+}

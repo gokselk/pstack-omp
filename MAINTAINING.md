@@ -66,6 +66,8 @@ Per-role models need `task.perCallModel: on` and each base model named by a `mod
 | `upstream/pstack/` | `pstack/` from cursor/plugins, unedited. |
 | `upstream/cursor-team-kit/` | `LICENSE` and the `deslop`, `control-cli`, `control-ui`, and `verify-this` skills from cursor/plugins `cursor-team-kit/`, unedited. |
 | `upstream/UPSTREAM.json` | the cursor/plugins commit, and the git object id of each vendored path. |
+| `upstream/scripts/generate-pstack-harness-trees.mjs` | upstream's Claude Code generator, unedited. Only its `TERMS` list is read. |
+| `.devcontainer/` | a Linux container like CI's, for running the scripts there from Windows or macOS. |
 | `adapter/omp.md` | the omp adapter, shipped as `skills/pstack-omp-adapter/SKILL.md`. Edit this one. |
 | `adapter/skills/` | skills written for omp, such as the adapted `skill-creator`, shipped byte for byte as `skills/<name>/`. Edit these. |
 | `adapter/guide-note.md` | the omp note under the H1 of the README, the guide's front page, and its setup page. Edit this one. |
@@ -76,13 +78,15 @@ Per-role models need `task.perCallModel: on` and each base model named by a `mod
 
 ## windows
 
-omp runs on Windows, and the plugin is built to work there. None of this has been run on Windows.
+omp runs on Windows, and the plugin and both scripts were run there on Windows 11 with omp 19.0.1, Git for Windows 2.56, and Node 26. Each item below was observed there.
 
-- `.gitattributes` turns line-ending conversion off. With `core.autocrlf`, a clone would otherwise give the skills' shell scripts CRLF line endings, which break them.
-- A transcript is found through `$PI_SESSION_FILE`, which omp sets for every `bash` call.
+- `.gitattributes` turns line-ending conversion off. A clone with `core.autocrlf=true` checks the shell scripts out with LF endings and a clean `git status`.
+- omp sets `$PI_SESSION_FILE` for every `bash` call, as a Windows path. A `poteto-mode` feature run with `--plugin-dir` read the skill through `skill://`, spawned `poteto-agent` with the rule's model, had no `task` call rejected, and passed its check. A `reflect` run continuing it with `-c` worked from the chat in context, read no transcript, and listed no session folder.
 - The generator fails on a file name Windows cannot check out: a reserved character or device name, a trailing dot or space, or two names that differ only by case. The longest path in the plugin is 98 characters, which leaves room under the 260-character limit after omp's cache folder.
-- Upstream's own scripts (`log.sh`, `watch-pr`, `statechart`) and the omp `worktree-audit.sh` are POSIX shell or start with a `#!` line. omp runs `bash` commands in its built-in shell on Windows too, but whether each script works there is untested. That includes whether `worktree-audit.sh` computes the session folder names omp uses there.
-- `skill-creator`'s `run_eval.py` reads `omp -p` output with `select`, as upstream's version does, and Python on Windows supports `select` only for sockets. There every query of its trigger check errors and counts as not triggered, so `run_loop.py` measures nothing.
+- The sync and the generator run on Windows. Node reports no executable bit there, so both read a file's mode from git's index and stage the modes of what they write with `git add --chmod`. A sync and a generation there produced upstream's object ids and the same tree, byte for byte and mode for mode, as Linux in `.devcontainer/`. A new executable in `adapter/` needs `git add --chmod=+x` on Windows. The devcontainer bind-mounts the checkout with every file at mode 777, so run the scripts in a clone inside it, not in `/workspaces/`.
+- omp's built-in shell on Windows honors a `#!` line only when it names `sh` or `bash`, and runs any other script as shell script. `log.sh` and the `statechart` launcher work run directly; `statechart` checked a spec with TLC from `TLA2TOOLS`, since mise was not installed. `watch-pr` starts with `#!/usr/bin/env bun`, so run directly it fails with `import: command not found`; `bun scripts/watch-pr/watch-pr` works, and printed a real PR's status. A Python rewrite of the shell scripts would not help: a `#!/usr/bin/env python3` file fails the same way, and the shell scripts already work.
+- The shell gives scripts no `$HOME` on Windows, so `worktree-audit.sh` falls back to `$USERPROFILE`, and takes the temp root from `$TEMP`, which lies under home there. omp named the session folders of worktrees under home, under `$TEMP`, and under `C:\Users\Public` `-<path>`, `-tmp-<path>`, and `--C--Users-Public-<path>--`, and the script computes each of these. A chat stores a Windows path JSON-escaped, so the script matches `\\` too. Every worktree got its LAST_CHAT, including one named only by a chat in the main repo. On Linux the script computes the same folder names as before.
+- `skill-creator`'s `run_eval.py` reads `omp -p` output on a thread, because Python on Windows supports `select` only for sockets: with `select`, every query errored and counted as not triggered. Its scripts read and write UTF-8, because Python on Windows defaults to the ANSI code page, which turned an em dash in a description into `â€”`. Its trigger check and a two-iteration `run_loop.py` worked there without `PYTHONUTF8`.
 
 ## versions
 
@@ -102,7 +106,8 @@ node scripts/generate-omp-tree.mjs
 The sync or the generator fails, and the scheduled run fails without pushing, when:
 
 - a path in `VENDORED` is gone upstream. The sync names it. Drop it from `VENDORED`, or vendor what replaced it.
-- upstream changes `docs/harness/claude-code.md`. Upstream adds a row there for each Cursor name its skills start using, and the matching `TERMS` entry lives in a script the sync does not fetch. Port the change to `adapter/omp.md` and `TERMS`, then update `CLAUDE_ADAPTER_SHA256` in the generator.
+- upstream changes the `TERMS` list in `upstream/scripts/generate-pstack-harness-trees.mjs`. Upstream adds an entry there for each Cursor name its skills start using, with a row in its Claude Code adapter. Port the new names to `adapter/omp.md` and `TERMS`, then update `UPSTREAM_TERMS_SHA256` in the generator. Upstream's Claude Code adapter is not pinned: it also changes with every new default model, which this tree maps in one line.
+- a default slug in `setup-pstack`'s rule block has no mapping in `adapter/omp.md`. Add it to the setup-pstack Defaults line, and update the slug examples.
 - a skill uses a Cursor name in `TERMS` that `adapter/omp.md` has no row or section for.
 - `setup-pstack`, `poteto-mode`, `poteto-help`, `deslop`, `control-cli`, `control-ui`, `verify-this`, or `skill-creator` is gone. The adapter and the README point at them.
 - a skill in `DROPPED_SKILLS` is gone upstream, or is also one of the skills the adapter and the README point at. Delete it from `DROPPED_SKILLS`, or from `REQUIRED_SKILLS` in the generator.
