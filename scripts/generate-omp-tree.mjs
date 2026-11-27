@@ -200,7 +200,17 @@ const hidden = (body) => {
 // selector, resolves that slug to its Cursor provider, and runs the agent there or on the session model, depending on
 // the user's Cursor login. Without the line, an agent runs on the session model unless the call passes an approved
 // per-call `model`, as every other omp subagent does.
-const unpinned = (body) => body.replace(/^---\n[\s\S]*?\n---/, (frontmatter) => frontmatter.replace(/^model:.*\n/m, ""));
+// omp lets an agent without `spawns:` start no agent. `poteto-agent` stands in for omp's `task` agent plus
+// poteto-mode's rules, so it gets `spawns: "*"`, as `task` may spawn anything: a delegate running `/no-comments` spawns
+// `comment-sicko`. A list would also make omp give an item without `agent` the list's first name instead of `task`.
+// `comment-sicko` only reads and reports, so it stays a leaf.
+const SPAWNING_AGENTS = ["poteto-agent"];
+const forOmp = (body, agent) =>
+  body.replace(/^---\n[\s\S]*?\n---/, (frontmatter) => {
+    const unpinned = frontmatter.replace(/^model:.*\n/m, "");
+    if (!SPAWNING_AGENTS.includes(agent) || /^spawns:/m.test(unpinned)) return unpinned;
+    return unpinned.replace(/\n---$/, '\nspawns: "*"\n---');
+  });
 const rewritten = new Set();
 function source(path) {
   return rewrites.reduce((body, [from, to]) => {
@@ -291,6 +301,9 @@ for (const skill of REQUIRED_SKILLS) {
 }
 for (const name of Object.keys(DROPPED_SKILLS)) {
   if (!upstreamSkillNames.has(name)) problems.push(`${name} is gone upstream. Delete it from DROPPED_SKILLS`);
+}
+for (const agent of SPAWNING_AGENTS) {
+  if (!agents.includes(`${agent}.md`)) problems.push(`agents/${agent}.md is gone upstream. Delete it from SPAWNING_AGENTS`);
 }
 const upstreamTerms = existsSync(UPSTREAM_GENERATOR)
   ? readFileSync(UPSTREAM_GENERATOR, "utf8").match(/^const TERMS = \[\n[\s\S]*?^\];$/m)?.[0]
@@ -394,7 +407,7 @@ function render() {
       const body = source(path);
       const hide = root === KIT && /^skills\/[^/]+\/SKILL\.md$/.test(key);
       const agent = /^agents\/[^/]+\.md$/.test(key);
-      return [key, { ...file(path), bytes: Buffer.from(hide ? hidden(body) : agent ? unpinned(body) : body) }];
+      return [key, { ...file(path), bytes: Buffer.from(hide ? hidden(body) : agent ? forOmp(body, posix.basename(key, ".md")) : body) }];
     }),
   );
   files.set(ADAPTER, { bytes: Buffer.from(ADAPTER_FRONTMATTER + adapter), executable: false });
